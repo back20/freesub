@@ -4,30 +4,30 @@ allow-lan: true
 mode: rule
 log-level: info
 proxies:
-- name: 🇮🇶 IQ 01 - xiaohe
-  server: arcturus.yokkastars.com
-  port: 40443
+- name: 🇸🇦 沙特 (Saudi Arabia) 01 - xiaohe
+  server: 216.106.191.201
+  port: 10403
   udp: true
   type: vless
-  uuid: bb0f1ed0-0298-40a1-adb1-1f5d6ab33d54
+  uuid: dbf3f074-3b18-43f3-b82a-debd8c879c69
   flow: xtls-rprx-vision
   tls: true
   reality-opts:
-    public-key: w4AYHvQnQS6olDqoG9ptLOtgehaWOsv9HQhDax5bLA4
-    short-id: db46e2946fc466fd
-  servername: deepl.com
+    public-key: suK-MYTtZhJ9IJgsxPLTHLQadNotDqYslQcd5BNV_EQ
+    short-id: 6aa50b0cc8d23464
+  servername: www.apple.com
   client-fingerprint: chrome
 proxy-groups:
 - name: PROXIES
   type: select
   proxies:
   - AUTO
-  - 🇮🇶 IQ 01 - xiaohe
+  - 🇸🇦 沙特 (Saudi Arabia) 01 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
   interval: 300
   proxies:
-  - 🇮🇶 IQ 01 - xiaohe
+  - 🇸🇦 沙特 (Saudi Arabia) 01 - xiaohe
 rules:
 - MATCH,PROXIES
