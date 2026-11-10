@@ -33,6 +33,7 @@ import socket
 import zipfile
 import tarfile
 import platform
+import threading
 import subprocess
 import ipaddress
 import urllib.parse
@@ -63,13 +64,36 @@ SOURCE_URLS = [
     "https://raw.githubusercontent.com/roosterkid/openproxylist/main/V2RAY_RAW.txt",
     "https://www.ermao.net/sub/v2ray/ermao.net",
     "https://raw.githubusercontent.com/ishalumi/proxy-node-collector/main/output/nodes_base64.txt",
-    "https://gist.githubusercontent.com/shuaidaoya/9e5cf2749c0ce79932dd9229d9b4162b/raw/base64.txt",
-    "https://shadowmere.akiel.dev/api/b64sub/",
+    # ★ 2026-11: 两个源站已长期不可用, 移除避免每轮无效重试:
+    #   - gist shuaidaoya/... : 作者已删除 (raw/API 均 404)
+    #   - shadowmere.akiel.dev: 对 Azure 出口恒 403 (WAF 按 ASN 拦截), 回源也经常失败
+    # "https://gist.githubusercontent.com/shuaidaoya/9e5cf2749c0ce79932dd9229d9b4162b/raw/base64.txt",
+    # "https://shadowmere.akiel.dev/api/b64sub/",
+    # 香港/台湾定向补充源 (见 REGION_FILTER_SOURCES: 只取名称含 HK/TW 的节点)
+    "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge_base64.txt",
+    "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt",
 ]
+
+# ★ 地区定向源: 抓取后只保留名称命中正则的地区节点 (现在补 HK + TW)。
+#   动机: 香港/台湾长期只有个位数可用节点, 而聚合源里大量 HK/TW 段节点被淹没在
+#   4000+ 全球节点里; 全量入库会把测活时间翻倍, 只取 HK/TW 段则只增加 ~200 个
+#   候选, 却能显著抬高这两个地区的可用节点数。
+#   说明: 名称里的国家是上游标注, 最终仍以实测出口 IP 落库 (标注不准的会被自然淘汰)。
+_REGION_FILTER_RE = re.compile(
+    r"香港|Hong\s*Kong|\bHK\b|🇭🇰|台湾|Taiwan|\bTW\b|🇹🇼", re.I)
+REGION_FILTER_SOURCES = {
+    "https://raw.githubusercontent.com/mahdibland/V2RayAggregator/master/sub/sub_merge_base64.txt":
+        _REGION_FILTER_RE,
+    "https://raw.githubusercontent.com/ermaozi/get_subscribe/main/subscribe/v2ray.txt":
+        _REGION_FILTER_RE,
+}
 
 OUTPUT_DIR = "output"
 COUNTRY_DIR = os.path.join(OUTPUT_DIR, "by-country")
 RESIDENTIAL_COUNTRY_DIR = os.path.join(OUTPUT_DIR, "residential-by-country")
+# 家宽区快照: 某轮家宽复测被 relay 抖动打成 0 时, 用它原样恢复上一轮
+# (含按国家拆分), 保证 README 的"汇总数"和"按国家表"永远指向同一批节点。
+RESIDENTIAL_STATE_FILE = os.path.join(OUTPUT_DIR, "residential-last.json")
 
 SINGBOX_VERSION = "v1.14.0"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))          # scripts/
@@ -84,27 +108,89 @@ PROBE_TIMEOUT          = 12      # 活性首击超时 (秒) — 容纳慢启动�
 PROBE_RETRY_TIMEOUT    = 4       # 活性重试超时 (秒) — 死节点快速放弃
 PORT_KNOCK_TIMEOUT     = 2.5     # 端口预检超时
 IP_ECHO_TIMEOUT        = 6.0     # 出口 IP 检测超时
-SPEED_TEST_BYTES       = 2_500_000   # 2.5MB 下载测速 (2.5MB 足以算准吞吐且 < 70KB/s 判定线不变)
-SPEED_TEST_BUDGET      = 5.0         # 测速时间预算 (秒) — 2.5MB@70KB/s=36s 必断流, 5s 预算足够判型
-SPEED_MIN_BYTES_PER_S  = 70_000      # 吞吐 < 70KB/s 判定断流/不可用 (标准不变)
+
+# ★ 测速判定 (v4: 提速 + 降低误杀):
+#   旧版 9s/1.5MB 在每个活节点上都要跑一遍, 48 并发时既慢又互相挤带宽。
+#   现在: 6s/1MB 预算, 计时仍从首字节开始并丢弃 1.5s 慢启动;
+#   主池阈值降到 20KB/s (20~35KB/s 的节点仍可用, 不再一刀切误杀),
+#   家宽区同样 20KB/s (旧版 35KB/s 会误杀台湾/韩国慢速家宽)。
+SPEED_TEST_BYTES       = 1_000_000   # 1MB (6s@20KB/s=120KB, 足够判断是否断流)
+SPEED_TEST_BUDGET      = 6.0         # 测速总预算 (秒, 从首字节起算)
+SPEED_WARMUP           = 1.5         # 慢启动丢弃窗口 (秒)
+SPEED_MIN_BYTES_PER_S  = 20_000      # 主池: 稳态吞吐 < 20KB/s 才判定断流
+SPEED_MIN_RESIDENTIAL_BYTES_PER_S = 20_000  # 家宽区: 与主池同阈值 (旧版 35KB/s 误杀慢家宽)
+SPEED_MIN_SAMPLE_BYTES = 200_000     # 有效样本下限 (只看"样本小且时间短"时才判无效)
 IP_ECHO_URLS = [                    # 经代理获取出口 IP (多路冗余)
     "https://api.ip.sb/geoip",                         # JSON: country_code/asn/isp
     "https://ipinfo.io/json",                          # JSON: country/org
     "http://ip-api.com/json/?fields=status,query,countryCode,isp,org,as",  # HTTP free
 ]
-LIVENESS_URLS = [                    # 活性探测 URL (全部要求代理链路完整)
-    "https://www.gstatic.com/generate_204",       # 实测 204 OK
-    "https://www.google.com/generate_204",
-    "http://connectivitycheck.gstatic.com/generate_204",
+LIVENESS_URLS = [                    # 活性探测 URL (多厂商混合, 避免单一依赖 Google)
+    "https://www.gstatic.com/generate_204",              # Google 204
+    "https://cp.cloudflare.com/generate_204",            # Cloudflare 204
+    "https://captive.apple.com/hotspot-detect.html",     # Apple 200 "Success"
 ]
 SPEED_TEST_URLS = [               # 测速端点多路 (实测部分节点商屏蔽 speed.cloudflare.com)
     "https://speed.cloudflare.com/__down?bytes=" + str(SPEED_TEST_BYTES),
     "https://cachefly.cachefly.net/10mb.test",
 ]
 TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"      # warp=on 检测套壳节点
-MAX_WORKERS_TEST    = 48            # 同时 sing-box 实测节点数 (Azure 2C7G 实测 24→48 稳定; sing-box 单实例 < 30MB)
+
+
+def _env_int(name: str, default: int, max_value: int = 128) -> int:
+    """读环境变量整数 (非法/<=0 回退默认值; 超过 max_value 截断, 防手抖填 480)"""
+    try:
+        v = int(os.environ.get(name, "").strip())
+        return min(v, max_value) if v > 0 else default
+    except Exception:
+        return default
+
+
+# 同时 sing-box 实测节点数。
+#   为什么可调: 并发不是越高越好。GitHub Actions 标准 runner 只有 2~4 vCPU,
+#   48 并发 = 每核 12~24 个 sing-box 进程, TLS 握手阶段会互相抢 CPU,
+#   握手被拉长 → 超时 → 误判 no_liveness (正是"能用变不能用"的一种来源)。
+#   另外 Azure 出站有 SNAT 端口上限, 高并发 + 端口快速 TIME_WAIT 会造成连接失败。
+#   因此默认取 48 (吞吐优先), 但可通过 PROBE_CONCURRENCY 环境变量下调:
+#   若"未通过原因分布"里 no_liveness 占比异常高、且 probe_secs p90 接近超时值,
+#   说明并发压过了 CPU, 调到 32 / 24 再跑一轮对比真活数即可定论。
+MAX_WORKERS_TEST    = _env_int("PROBE_CONCURRENCY", 48)
 MAX_WORKERS_FETCH   = 8
 MAX_WORKERS_CLASSIFY = 32
+
+# ══════════════════════════════════════════════════════════════════
+# 工作流提速 / 误杀控制
+# ══════════════════════════════════════════════════════════════════
+# CI (Actions 海外视角) 或本地挂了前置代理时, TCP 预检失败可以直接淘汰:
+#   此时"预检失败"基本等于"节点入口真的不通", 继续起 sing-box 只会浪费 40%~60% 时间,
+#   还会把 CPU/带宽压满, 把活节点挤出 no_liveness (假阴性)。
+# 本地大陆无前置时保持"预检失败降级保留", 避免 GFW 视角误杀。
+IS_CI = os.environ.get("GITHUB_ACTIONS", "").strip().lower() == "true"
+HAS_FRONT_PROXY = bool(os.environ.get("FRONT_PROXY", "").strip())
+PREFILTER_DROP = os.environ.get(
+    "PREFILTER_DROP", "1" if (IS_CI or HAS_FRONT_PROXY) else "0"
+).strip().lower() in ("1", "true", "yes", "on")
+
+# 预检通过后的全量测活上限 (按 TCP RTT 排序, 只测最快的 N 个)。
+# ★ 默认 0 = 不限制: 全部候选都要真实测活。
+#   上限会截断 RTT 尾部队列, 而家宽/中转节点恰恰常在尾部 (入口远、握手慢),
+#   一旦被截断就等于整轮漏检, 订阅里会直接少掉一批可用节点。
+#   需要临时限流时再用环境变量 MAX_FULL_PROBE=3000 打开。
+MAX_FULL_PROBE = _env_int("MAX_FULL_PROBE", 0, max_value=20000)
+
+# rDNS 兜底默认关闭: 每个未知节点最多 2s, 在几百分类的场景里很拖时间。
+# 家宽召回不足时再设 CLASSIFY_RDNS=1 打开。
+ENABLE_RDNS = os.environ.get("CLASSIFY_RDNS", "0").strip().lower() in ("1", "true", "yes", "on")
+
+# ★ UDP-only 协议 (hysteria2/tuic) **默认进主订阅** (v2 起改回全协议):
+#   之前为了"前置不转发 UDP"把 hy2 全部移出主订阅, 结果台湾等以 hy2 为主的地区
+#   在主订阅里直接消失 (参考项目 TW 29 个里有 24 个是 hy2)。
+#   实测 v2rayN 的 socks5/http 前置链式**可以**转发 UDP (用户实测 ref 的 TW hy2
+#   挂前置有延迟可用), 所以协议不该一刀切; 只按真实测活结果过滤。
+#   udp-direct.* 仍然照常单独导出, 想只要 TCP 时可用它/自行筛选。
+#   仍想恢复"主订阅只出 TCP"的旧行为, 设 EXPORT_UDP_TO_MAIN=0。
+EXPORT_UDP_TO_MAIN = os.environ.get("EXPORT_UDP_TO_MAIN", "1").strip().lower() in (
+    "1", "true", "yes", "on")
 
 # ip-api.com 免费批量: 15 req/min, 每 req ≤100 IP (仅 HTTP)
 IP_API_BATCH_URL = "http://ip-api.com/batch?fields=status,countryCode,isp,org,as,asname,reverse,mobile,proxy,hosting,query"
@@ -178,6 +264,19 @@ DATACENTER_ASNS = {
     8342,  # Deltacomputers/Evrasia 类
     9009, 47692, 62041, 56630, 57502,  # Serverius/ProXmedia/Clouvider 类
 }
+
+# ══════════════════════════════════════════════════════════════════
+# 跨运行记忆
+#
+# 【保留但不再参与出库】曾经用来支撑"救援池"(Azure 连不上但历史活过 + 入口画像
+#   可直连 → 当作对国内家宽可用)。实测反馈: 这批节点在国内客户端里全是 -1,
+#   必须挂前置才有一部分能用 —— 说明"入口 IP 像 CF/亚洲 IDC"并不等于"国内能连",
+#   该假设不成立, 救援池与国内直连专区已整体下线。
+#   state.json 仍继续写入, 保留各节点的历史存活轨迹备查。
+# ══════════════════════════════════════════════════════════════════
+STATE_FILE = os.path.join(OUTPUT_DIR, "state.json")
+STATE_MAX_CONSEC_DEAD = 3
+
 
 # 民用宽带 ASN 白名单 (离线兜底; 关键国家主流运营商)
 RESIDENTIAL_ASNS = {
@@ -530,11 +629,26 @@ def setup_environment():
         print(f"[!] sing-box 内核无法运行: {e}")
         raise
 
-    # --- GeoLite2 数据库 ---
+    # --- GeoLite2 数据库 (★ 7 天新鲜度缓存: 旧版每次运行都重下 ~11MB) ---
     country_db = os.path.join(RUNTIME_DIR, "Country.mmdb")
     asn_db = os.path.join(RUNTIME_DIR, "ASN.mmdb")
-    download_file("https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", country_db)
-    download_file("https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb", asn_db)
+
+    def _db_fresh(path):
+        try:
+            return (os.path.exists(path)
+                    and os.path.getsize(path) > 100 * 1024
+                    and (time.time() - os.path.getmtime(path)) < 7 * 86400)
+        except OSError:
+            return False
+
+    if _db_fresh(country_db):
+        print(f"[+] GeoLite Country 命中缓存: {os.path.getsize(country_db)//1024}KB")
+    else:
+        download_file("https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb", country_db)
+    if _db_fresh(asn_db):
+        print(f"[+] GeoLite ASN 命中缓存: {os.path.getsize(asn_db)//1024}KB")
+    else:
+        download_file("https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb", asn_db)
     print(f"[+] GeoLite 数据库就绪: Country={os.path.getsize(country_db)//1024}KB, ASN={os.path.getsize(asn_db)//1024}KB")
 
 
@@ -949,6 +1063,21 @@ def parse_node_uri(uri: str):
     return None
 
 
+def _uri_display_name(uri: str) -> str:
+    """取节点显示名 (vmess 的 ps 在 base64 JSON 里, 不能只看 #fragment)"""
+    try:
+        if uri.startswith("vmess://"):
+            data = b64_decode(uri[len("vmess://"):])
+            if data:
+                j = json.loads(data)
+                return str(j.get("ps") or j.get("remark") or "")
+        if "#" in uri:
+            return urllib.parse.unquote(uri.split("#", 1)[-1])
+    except Exception:
+        pass
+    return ""
+
+
 def extract_nodes_from_text(text: str) -> set:
     results = set()
     if not text:
@@ -974,37 +1103,98 @@ def extract_nodes_from_text(text: str) -> set:
     return results
 
 
-def fetch_raw_nodes() -> list:
+# 被 WAF / 风控拦截的状态码: 同一个出口 IP 重试毫无意义, 直接交给"回源补抓"
+FETCH_BLOCK_STATUS = {401, 403, 407, 429, 451}
+
+
+def _classify_fetch_error(status_code: int) -> str:
+    """HTTP 状态码 → 失败类型
+
+    blocked: 鉴权/风控/地域封锁 — 同 IP 重试无意义, 直接回源
+    server : 5xx — 源站自身故障或过载, 值得重试一次, 仍失败再回源
+    network: 其他 4xx — 多为路径错误, 回源也救不了, 但仍归入回源集合 (成本可忽略)
+    """
+    if status_code in FETCH_BLOCK_STATUS:
+        return "blocked"
+    if 500 <= status_code < 600:
+        return "server"
+    return "network"
+
+
+# 失败类型的信息量排序: 越靠前越"值得回源", 多次尝试时保留信息量最高的那个
+FETCH_KIND_PRIO = {"blocked": 0, "server": 1, "empty": 2, "network": 3}
+
+
+def _merge_kind(old: str, new: str) -> str:
+    """两次尝试的失败类型合并: 取信息量更高的 (blocked > server > empty > network)
+
+    例: 第 1 次 200-但-0节点 (empty)、第 2 次连接超时 (network) —— 保留 empty,
+    因为"源站回了内容但是空的"比"这次没连上"更能说明问题。
+    """
+    return new if FETCH_KIND_PRIO.get(new, 9) < FETCH_KIND_PRIO.get(old, 9) else old
+
+
+def fetch_raw_nodes() -> tuple:
+    """抓取全部订阅源
+
+    返回 (nodes, failed)
+      nodes  : list[str]  节点 URI 全集
+      failed : list[(url, kind, err)]  kind ∈ {blocked, server, empty, network}
+
+    ★ 为什么要区分 kind:
+      源站 (如 shadowmere.xyz) 普遍在 Cloudflare 上按出口 ASN 拦截数据中心 IP。
+      GitHub Actions 出口是 Azure → 直接 403。此时在同一 IP 上重试 3 次纯属浪费,
+      正确做法是记下来, 等测活阶段拿到存活节点后**用节点自身作出口回源补抓**。
+    """
     nodes = set()
+    failed = []
     print("[*] 抓取全部订阅源 ...")
 
     def _fetch(url):
-        last_err = None
-        # 重试 2 次 (网络抖动/GFW 间歇性重置; 退避 3s)
+        last_err, kind = "unknown", "network"
+        # 重试 2 次 (网络抖动/间歇性重置; 退避 3s) —— 仅对网络/5xx 类失败有意义
         for attempt in range(3):
             try:
                 r = http_get(url, timeout=30)
                 if r.status_code == 200:
                     got = extract_nodes_from_text(r.text)
-                    return url, got, None
-                last_err = f"HTTP {r.status_code}"
+                    pat = REGION_FILTER_SOURCES.get(url)
+                    if pat and got:
+                        before = len(got)
+                        got = {u for u in got if pat.search(_uri_display_name(u))}
+                        print(f"[*] 地区过滤 {url.split('/')[-1]} → {len(got)}/{before} 节点 (仅保留 HK/TW)")
+                    if got:
+                        return url, got, None, ""
+                    # 200 但解析不出节点: 可能是空订阅/维护页, 重试一次仍不行就记为 empty
+                    last_err, kind = "HTTP 200 但解析 0 节点", _merge_kind(kind, "empty")
+                else:
+                    last_err = f"HTTP {r.status_code}"
+                    new_kind = _classify_fetch_error(r.status_code)
+                    kind = _merge_kind(kind, new_kind)
+                    if new_kind == "blocked":
+                        break   # WAF 拦截: 换 IP 才有意义, 同 IP 重试无用
             except Exception as e:
-                last_err = str(e)[:70]
+                last_err, kind = str(e)[:70], _merge_kind(kind, "network")
             if attempt < 2:
                 time.sleep(3)
-        return url, set(), last_err
+        return url, set(), last_err, kind
 
     with ThreadPoolExecutor(MAX_WORKERS_FETCH) as ex:
         futs = [ex.submit(_fetch, u) for u in SOURCE_URLS]
         for f in as_completed(futs):
-            url, got, err = f.result()
+            url, got, err, kind = f.result()
             if err:
-                print(f"[!] 拉取失败 {url} → {err}")
+                failed.append((url, kind, err))
+                tag = "被拦" if kind == "blocked" else "失败"
+                print(f"[!] 拉取{tag} {url} → {err}")
             else:
                 print(f"[+] {url} → {len(got)} 节点")
             nodes.update(got)
     print(f"[*] 初始抓取总量: {len(nodes)}")
-    return list(nodes)
+    if failed:
+        blocked_n = sum(1 for _, k, _ in failed if k == "blocked")
+        print(f"[*] 抓取失败 {len(failed)} 个源站 (其中被 WAF 拦截 {blocked_n} 个, 将尝试用存活节点回源补抓)")
+    return list(nodes), failed
 
 
 # ═══════════════════════════════════════════N═══════════════════════
@@ -1012,55 +1202,98 @@ def fetch_raw_nodes() -> list:
 # ═══════════════════════════════════════════N═══════════════════════
 
 # DoH 域名解析 (Cloudflare): 防 DNS 污染 (本地大陆网络); Actions 上顺带跳过其国内 DNS 限制
+#   value = (ips: list[str], expire_ts: float)
+#   ★ 负缓存必须有 TTL: 旧版把一次 DoH/系统 DNS 抖动永久缓存成 "", 该域名的所有节点
+#     整轮判死, 属于典型误杀。现在成功缓存 30 分钟, 失败只缓存 5 分钟。
 _DNS_CACHE = {}
+_DNS_TTL_OK = 1800
+_DNS_TTL_FAIL = 300
 
-def resolve_host(host: str) -> str:
-    """DoH 解析 (带本地缓存); 失败退回系统 DNS"""
-    if not host or is_ip_literal(host):
-        return host or ""
-    if host in _DNS_CACHE:
-        return _DNS_CACHE[host]
+
+def resolve_hosts(host: str) -> list:
+    """解析域名 → 全部 A 记录列表 (带 TTL 缓存; 失败退回系统 DNS)
+
+    ★ 返回列表而不是单个 IP: 多 A 记录的 CDN 域名只试第一个 IP 会误杀,
+      预检时需要把所有地址都试一遍。"""
+    if not host:
+        return []
+    if is_ip_literal(host):
+        return [host]
+    now = time.time()
+    hit = _DNS_CACHE.get(host)
+    if hit and hit[1] > now:
+        return hit[0]
+    ips = []
     # 1) DoH (Cloudflare 1.1.1.1, 走 DIRECT_SESSION 可过墙)
     try:
         r = DIRECT_SESSION.get(
             f"https://cloudflare-dns.com/dns-query?name={urllib.parse.quote(host)}&type=A",
             headers={"Accept": "application/dns-json"}, timeout=5)
         if r.status_code == 200:
-            answers = r.json().get("Answer") or []
-            for a in answers:
-                if a.get("type") == 1 and a.get("data"):
-                    _DNS_CACHE[host] = a["data"]
-                    return a["data"]
+            for a in (r.json().get("Answer") or []):
+                if a.get("type") == 1 and a.get("data") and a["data"] not in ips:
+                    ips.append(a["data"])
     except Exception:
         pass
-    # 2) 系统 DNS 兜底
-    try:
-        return socket.getaddrinfo(host, None, socket.AF_INET, socket.SOCK_STREAM)[0][4][0]
-    except Exception:
-        return ""
+    # 2) 系统 DNS 兜底 (拿全部地址)
+    if not ips:
+        try:
+            for info in socket.getaddrinfo(host, None, socket.AF_INET, socket.SOCK_STREAM):
+                ip = info[4][0]
+                if ip and ip not in ips:
+                    ips.append(ip)
+        except Exception:
+            pass
+    if ips:
+        _DNS_CACHE[host] = (ips, now + _DNS_TTL_OK)
+    else:
+        # 负缓存带 TTL: 一次抖动不该让该域名整轮判死
+        _DNS_CACHE[host] = ([], now + _DNS_TTL_FAIL)
+    return ips
 
 
-def knock_port(server: str, port: int, protocol_type: str) -> bool:
-    """TCP 直连预检 (DoH 解析防本地 DNS 污染); QUIC 类直接放行阶段B
-    注: 预检失败不淘汰 (本地大陆视角的假死 ≠ 节点死亡), 只影响排序;
-        生死由阶段B sing-box 全流程测活裁决 (Actions 海外视角)"""
+def resolve_host(host: str) -> str:
+    """兼容旧调用: 返回首个可用 IP (失败返回 "")"""
+    ips = resolve_hosts(host)
+    return ips[0] if ips else ""
+
+
+def knock_port(server: str, port: int, protocol_type: str):
+    """TCP 直连预检; 返回 (ok, rtt_ms)
+
+    ★ 多地址尝试: 解析出的全部 A 记录都试一遍, 全失败才算失败。
+    QUIC 类 (hysteria2/tuic) 无法用 TCP 预检 UDP, 直接放行 (ok=True, rtt=0)。"""
     if protocol_type in ("hysteria2", "tuic"):
-        # QUIC 无法轻量预检 UDP 端口连通性, 且本地 UDP 常被 QoS → 放行交阶段B
-        return True
-    try:
-        ip = resolve_host(server)
-        if not ip:
-            return False
-        with socket.create_connection((ip, port), timeout=PORT_KNOCK_TIMEOUT):
-            return True
-    except Exception:
-        return False
+        return True, 0.0
+    ips = resolve_hosts(server)
+    if not ips:
+        return False, 0.0
+    best = None
+    for ip in ips[:4]:   # 最多试 4 个地址, 避免极端多 A 域名拖慢预检
+        t0 = time.time()
+        try:
+            with socket.create_connection((ip, port), timeout=PORT_KNOCK_TIMEOUT):
+                rtt = (time.time() - t0) * 1000.0
+                if best is None or rtt < best:
+                    best = rtt
+        except Exception:
+            continue
+    if best is None:
+        return False, 0.0
+    return True, best
 
 
-def prefilter_candidates(candidates: list) -> list:
-    """端口预检: 通过者优先, 未通过者降级保留 (防止本地网络/GFW 视角误杀;
-    真正生死由阶段B sing-box 全流程测活裁决 — Actions 海外视角)"""
-    print(f"[*] 端口预检 (TCP {PORT_KNOCK_TIMEOUT}s): {len(candidates)} 候选 ...")
+def prefilter_candidates(candidates: list, return_deferred: bool = False):
+    """端口预检 + 排序 + 可选淘汰
+
+    ★ 提速关键: CI / 挂了前置代理时, 预检失败基本等于入口真不通,
+      继续起 sing-box 只会浪费 40%~60% 时间, 还会把并发压满制造假阴性。
+      此时直接淘汰; 本地大陆无前置时仍保留"预检未过降级到队尾"的旧行为。
+    ★ 返回 deferred: 预检未过但**入口像家宽**的候选要留给家宽多端复测 ——
+      家宽入口在国内/海外视角下被 TCP 阻断是常态, 直接淘汰会把真家宽误杀。
+    ★ 通过者按 TCP RTT 升序排列, 并受 MAX_FULL_PROBE 上限约束。"""
+    drop = PREFILTER_DROP
+    print(f"[*] 端口预检 (TCP {PORT_KNOCK_TIMEOUT}s, drop={int(drop)}): {len(candidates)} 候选 ...")
     passed, deferred = [], []
 
     def _knock(item):
@@ -1068,40 +1301,66 @@ def prefilter_candidates(candidates: list) -> list:
         return knock_port(server, port, proto)
 
     with ThreadPoolExecutor(max_workers=64) as ex:
-        # ex.map 保序返回; 通过者优先, 未通过降级保留 (不淘汰, 防本地视角误杀)
-        for item, ok in zip(candidates, ex.map(_knock, candidates)):
-            (passed if ok else deferred).append(item)
-    print(f"[+] 预检通过: {len(passed)} | 预检未过(保留低优先级待全测): {len(deferred)}")
-    # 预检未过的仍进入全流程 (只是排在后面) — 交给 sing-box 真实裁决
-    return passed + deferred
+        for item, (ok, rtt) in zip(candidates, ex.map(_knock, candidates)):
+            if ok:
+                passed.append((rtt, item))
+            else:
+                deferred.append(item)
+    passed.sort(key=lambda x: x[0])
+    passed = [it for _, it in passed]
+
+    if drop:
+        print(f"[+] 预检通过: {len(passed)} | 预检未过已淘汰: {len(deferred)}")
+        ordered = passed
+    else:
+        print(f"[+] 预检通过: {len(passed)} | 预检未过(保留低优先级待全测): {len(deferred)}")
+        ordered = passed + deferred
+
+    if MAX_FULL_PROBE > 0 and len(ordered) > MAX_FULL_PROBE:
+        print(f"[+] 全量测活上限 {MAX_FULL_PROBE}: 按 TCP RTT 截断 {len(ordered) - MAX_FULL_PROBE} 个尾部队列")
+        ordered = ordered[:MAX_FULL_PROBE]
+    if return_deferred:
+        return ordered, (deferred if drop else [])
+    return ordered
 
 
 # ═══════════════════════════════════════════N═══════════════════════
 # 阶段 B: sing-box 真实测活
 # ═══════════════════════════════════════════N═══════════════════════
 
+_PORT_LOCK = threading.Lock()
+_PORT_CURSOR = [21000 + (os.getpid() % 4000)]
+
+
 def _alloc_socks_port() -> int:
+    """顺序分配 SOCKS 入站端口 (锁保护)
+
+    ★ 修复旧版竞态: 旧实现 bind(0) 拿到端口后立刻 close, 再让 sing-box 去 bind —
+      48 线程并发时, 这个端口可能被别的线程抢先占用, 导致节点随机启动失败被误判死亡。
+      现在改为单调递增 + 加锁探测, 循环 200 次内基本不会碰撞。
+    """
+    with _PORT_LOCK:
+        for _ in range(200):
+            p = _PORT_CURSOR[0]
+            _PORT_CURSOR[0] = p + 1 if p < 60000 else 21000
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.bind(("127.0.0.1", p))
+                return p
+            except OSError:
+                continue
+    # 兜底: 交还系统分配
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
-def build_test_config(outbound: dict, socks_port: int, chain_relay: dict = None) -> dict:
+def build_test_config(outbound: dict, socks_port: int, allow_front: bool = True,
+                      front_proxy: str = None) -> dict:
     node = dict(outbound)
     node["tag"] = "node"
 
     outbounds = [node, {"type": "direct", "tag": "direct"}, {"type": "block", "tag": "block"}]
-
-    # ══ 链式前置 (家宽链式复测用) ═════════════════════════════════════
-    # chain_relay: 已验证存活的 sing-box outbound dict — node 经它转发 (detour 双跳)
-    # 模拟用户 v2rayN "链式/前置代理" 场景: 前置 → 家宽节点 → 目标
-    if chain_relay:
-        relay = dict(chain_relay)
-        relay["tag"] = "chain-relay"
-        # relay 自身剥 detour (避免与 node 的 detour 循环)
-        relay.pop("detour", None)
-        outbounds.append(relay)
-        node["detour"] = "chain-relay"
 
     # ══ 前置代理 (链式) ═════════════════════════════════════════════
     # 模拟 GitHub Actions 海外视角:
@@ -1109,8 +1368,15 @@ def build_test_config(outbound: dict, socks_port: int, chain_relay: dict = None)
     #     (大陆直连目标节点会被 GFW 拦截, 造成本地假死 ≠ 节点死亡)
     #   - GitHub Actions: FRONT_PROXY 为空 → 直连 (Azure US 本就是海外视角)
     # 用法: 环境变量 FRONT_PROXY=socks5://127.0.0.1:10808
-    front = os.environ.get("FRONT_PROXY", "").strip()
-    if front and not chain_relay:
+    # ★ allow_front=False 用于"回源补抓": 那里必须让流量真的从节点出去,
+    #   若再叠一层本机前置代理, 出口又变回本机 IP, 整个回源机制就静默失效了。
+    # ★ 多端复测时会为每条 relay 显式传 front_proxy: 环境变量是进程级的,
+    #   多个 relay 并发时用 os.environ["FRONT_PROXY"] 会串线, 所以改为函数参数。
+    if front_proxy is not None:
+        front = front_proxy.strip() if allow_front else ""
+    else:
+        front = os.environ.get("FRONT_PROXY", "").strip() if allow_front else ""
+    if front:
         # 解析 socks5://host:port → socks outbound
         m = re.match(r"^(socks5h?|http)://([^:]+):(\d+)$", front)
         if m:
@@ -1151,39 +1417,78 @@ def print_once(key: str, msg: str):
         print(msg)
 
 
-def test_single_node(item, keep_alive_check=True):
-    """返回 dict 或 None; 含: 活性/延迟/出口IP/国家/ASN/ISP/速度/MITM"""
+def _make_result(item, status, fail_stage="", fail_detail=""):
+    """构造统一结果对象 (★ 三态化: 失败节点也返回对象, 不再 return None)
+
+    为什么要保留失败节点而不直接丢弃:
+      失败原因要能统计 (fail_stage 直方图), 否则永远看不清漏斗卡在哪一步。
+      但**不连通就不出库** —— 曾经试过把"Azure 连不上但入口像 CF/亚洲 IDC"的节点
+      当救援池放出, 实测国内客户端全 -1, 必须挂前置才有一部分能用, 该假设已废弃。
+    """
+    raw, outbound, server, port, proto = item
+    return {
+        "raw": raw,
+        "server": server,
+        "port": port,
+        "proto": proto,
+        "cred": cred_fingerprint(outbound, proto),
+        "outbound": outbound,   # 留底: 出库阶段重建 outbound 失败时回退使用
+        "status": status,
+        "fail_stage": fail_stage,
+        "fail_detail": (fail_detail or "")[:120],
+        "alive": status == "alive",
+        "latency_ms": 99999,
+        "exit_ip": None,
+        "exit_country_online": None,
+        "exit_asn_online": None,
+        "exit_asn_org_online": "",
+        "exit_isp_online": "",
+        "mitm_risk": False,
+        "is_warp": False,
+        "speed_bps": 0,
+        "speed_unmeasured": True,   # 未连通 = 未测速
+        "is_stalled": False,
+        "quality_flags": [],
+    }
+
+
+def test_single_node(item, keep_alive_check=True, front_proxy: str = None):
+    """返回 dict (★ 永不返回 None); status ∈ {alive, unreachable}
+    含: 活性/延迟/出口IP/国家/ASN/ISP/速度/MITM/质量标记/失败阶段
+
+    front_proxy: 显式指定前置 (如 "socks5://127.0.0.1:12345"); None = 沿用环境变量
+    """
     raw, outbound, server, port, proto = item
     socks_port = _alloc_socks_port()
     task_id = uuid.uuid4().hex[:10]
     cfg_path = os.path.join(RUNTIME_DIR, f"sb_{task_id}.json")
 
-    # ★ 链式前置 (chain relay): 注入已验证存活节点作前置 (chain_retest 用, 模拟 v2rayN 链式)
-    chain_out = None
-    chain_json = os.environ.get("CHAIN_RELAY_OUT", "").strip()
-    if chain_json:
-        try:
-            chain_out = json.loads(chain_json)
-        except Exception:
-            chain_out = None
-    config = build_test_config(outbound, socks_port, chain_relay=chain_out)
+    # ★ 链式前置 (chain relay) 已改为"真起一个 socks5 前置进程", 见 _start_relay_proxy。
+    #   旧的 CHAIN_RELAY_OUT (sing-box 内部 detour) 已删除: 它能把 UDP 也 relay 过去,
+    #   于是在 CI 里把 hy2 判成"双跳可用", 而用户前置转发不了 UDP → 客户端全 -1。
+    config = build_test_config(outbound, socks_port, front_proxy=front_proxy)
     with open(cfg_path, "w", encoding="utf-8") as f:
         json.dump(config, f)
 
     exe = SINGBOX_BIN + (".exe" if os.name == "nt" else "")
 
-    # --- 0) sing-box check 预校验: 快速淘汰 schema 错误 (实测可发现 2022 密钥长度/端口区间等错误) ---
+    # --- 0) sing-box check 预校验: 快速识别 schema 错误 (记录原因, 不再静默丢弃) ---
     try:
         chk = subprocess.run([exe, "check", "-c", cfg_path],
                              capture_output=True, text=True, timeout=15,
                              creationflags=(subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0))
         if chk.returncode != 0:
-            return None  # 配置级错误 → 该节点无法被 sing-box 使用, 必淘汰
+            detail = (chk.stderr or chk.stdout or "").strip().splitlines()
+            try:
+                os.remove(cfg_path)   # 早返回不经过 finally, 手动清理临时配置
+            except OSError:
+                pass
+            return _make_result(item, "unreachable", "config_invalid",
+                                detail[-1] if detail else f"exit={chk.returncode}")
     except Exception:
         pass  # check 本身失败不阻止后续 run 尝试
 
     proc = None
-    result = None
     try:
         proc = subprocess.Popen(
             [exe, "run", "-c", cfg_path],
@@ -1203,14 +1508,18 @@ def test_single_node(item, keep_alive_check=True):
             except Exception:
                 time.sleep(0.15)
         if not ready:
-            return None
+            return _make_result(item, "unreachable", "socks_not_ready",
+                                "sing-box 进程未能监听本地入站")
 
         proxies = {"http": f"socks5h://127.0.0.1:{socks_port}",
                    "https": f"socks5h://127.0.0.1:{socks_port}"}
 
-        # --- 1) 活性探测: 分层超时重试 (首击宽 12s 容慢节点保准确率; 重试窄 4s 快速放弃死节点) ---
+        # --- 1) 活性探测: 分层超时 (首击宽 12s 容慢节点; 重试窄 4s 快速放弃死节点) ---
+        #     多厂商端点 (Google / Cloudflare / Apple), 避免单一厂商被限速或劫持时全灭
         alive_hits, latency_ms = 0, 99999
+        last_err = ""
         t0 = time.time()
+        t_live0 = t0          # 活性阶段单独计时 (并发是否压垮 CPU, 只看这一段)
         for i, url in enumerate(LIVENESS_URLS):
             timeout = PROBE_TIMEOUT if i == 0 else PROBE_RETRY_TIMEOUT
             try:
@@ -1219,12 +1528,99 @@ def test_single_node(item, keep_alive_check=True):
                     alive_hits += 1
                     latency_ms = min(latency_ms, (time.time() - t0) * 1000)
                     break  # 任一成功即可
+                last_err = f"HTTP {r.status_code}"
+            except Exception as e:
+                last_err = type(e).__name__
+                continue
+        liveness_secs = round(time.time() - t_live0, 2)
+        if alive_hits == 0:
+            res = _make_result(item, "unreachable", "no_liveness", last_err)
+            res["liveness_secs"] = liveness_secs
+            return res
+
+        # --- 2) 吞吐测量 (★ 提前到出口 IP / MITM / trace 之前) ---
+        #   (a) 计时从**首字节**开始, 不再把 SOCKS/TCP/TLS 握手 + TTFB 算进吞吐
+        #   (b) 丢弃前 1.5s 慢启动期, 用稳态窗口算速率
+        #   (c) 全部端点都拿不到数据 → 标记 speed_unmeasured, **不再判定断流**
+        #   (d) ★ 小样本修正: downloaded>0 且耗时足够时按实际速度算 (慢节点不再被
+        #       当成"未测到"而漏出); 只有 0 字节 / 明显过早 EOF 才叫未测到。
+        #   (e) ★ 断流节点在这里就直接返回, 省掉后面出口IP+MITM+trace 的 3~4 个请求。
+        speed_bps = 0
+        speed_measured = False
+        for speed_url in SPEED_TEST_URLS:
+            downloaded = 0
+            t_first = t_warm = t_last = None
+            bytes_warm = 0
+            try:
+                with PROBE_SESSION.get(speed_url, proxies=proxies,
+                                       timeout=(5, SPEED_TEST_BUDGET), stream=True) as r:
+                    if r.status_code != 200:
+                        continue
+                    for chunk in r.iter_content(chunk_size=65536):
+                        now = time.time()
+                        if chunk:
+                            if t_first is None:
+                                t_first = now
+                                t_warm = now + SPEED_WARMUP
+                            downloaded += len(chunk)
+                            if now >= t_warm:
+                                bytes_warm += len(chunk)
+                                t_last = now
+                        if t_first is not None and now - t_first > SPEED_TEST_BUDGET:
+                            break
+                        if t_last is not None and now - t_last > 3.0:
+                            break   # 空闲 > 3s 无数据 = 断流签名, 立即中止
+                if downloaded <= 0 or t_first is None:
+                    continue
+                elapsed_total = (t_last or time.time()) - t_first
+                if bytes_warm > 0 and t_last is not None:
+                    speed_bps = int(bytes_warm / max(t_last - t_warm, 0.5))
+                    speed_measured = True
+                elif downloaded >= SPEED_MIN_SAMPLE_BYTES or elapsed_total >= 1.0:
+                    # ★ 小样本但耗时足够 = 真实慢节点, 按实测速度算 (旧版直接丢弃 →
+                    #    <22KB/s 的慢节点被当"未测到"保留, 与"断流"口径自相矛盾)
+                    speed_bps = int(downloaded / max(elapsed_total, 0.3))
+                    speed_measured = True
+                else:
+                    # 下载量极小且时间极短 (服务端提前 EOF): 硬算会得到假高值 → 未测到
+                    continue
+                break   # 首个成功端点的结果即有效
             except Exception:
                 continue
-        if alive_hits == 0:
-            return None
 
-        # --- 2) 真实出口 IP (多路冗余) ---
+        is_stalled = speed_measured and speed_bps < SPEED_MIN_BYTES_PER_S
+
+        res = {
+            "raw": raw,
+            "server": server,
+            "port": port,
+            "proto": proto,
+            "cred": cred_fingerprint(outbound, proto),
+            "outbound": outbound,
+            "status": "alive",
+            "fail_stage": "",
+            "fail_detail": "",
+            "alive": True,
+            "latency_ms": int(latency_ms),
+            "liveness_secs": liveness_secs,
+            "exit_ip": None,
+            "exit_country_online": None,
+            "exit_asn_online": None,
+            "exit_asn_org_online": "",
+            "exit_isp_online": "",
+            "mitm_risk": False,
+            "is_warp": False,
+            "speed_bps": speed_bps,
+            "speed_unmeasured": not speed_measured,
+            "is_stalled": is_stalled,
+            "quality_flags": [],
+        }
+
+        if is_stalled:
+            # 断流节点出库阶段必被淘汰, 提前返回省时 (不做出口IP/MITM/trace)
+            return res
+
+        # --- 3) 真实出口 IP (多路冗余) ---
         exit_ip, exit_country, exit_asn, exit_asn_org, exit_isp = None, None, None, None, None
         for url in IP_ECHO_URLS:
             try:
@@ -1258,72 +1654,35 @@ def test_single_node(item, keep_alive_check=True):
             except Exception:
                 continue
 
-        # --- 3) MITM 劫持检测 (轻量: 复用活性首击的 gstatic 请求已验证证书链) ---
-        # 3a) 独立复检一次带 verify=True 的请求: SSLError = TLS 拦截
+        quality_flags = res["quality_flags"]
+
+        # --- 4) MITM 劫持检测 ---
+        # ★ 修正旧版误判: 旧实现把"非 204/200 且带内容"全判为 MITM 并直接删除,
+        #   但 Google 对机房/被滥用 IP 经常直接回 403 或 sorry 页 —— 那是 IP 信誉问题,
+        #   不是中间人。真正的 MITM 唯一可靠信号是 TLS 证书链校验失败 (SSLError)。
+        #   其他异常状态码只记质量标记, 不参与生死判定。
         mitm_risk = False
         try:
             r = PROBE_SESSION.get("https://www.gstatic.com/generate_204", proxies=proxies,
                                   timeout=PROBE_RETRY_TIMEOUT, verify=True)
-            if r.status_code in (204, 200):
-                mitm_risk = False
-            else:
-                mitm_risk = r.status_code in (301, 302, 403, 407, 502, 503) or len(r.content) > 0
+            if r.status_code not in (200, 204):
+                quality_flags.append(f"gstatic_{r.status_code}")
         except requests.exceptions.SSLError:
-            # 证书链验证失败 = TLS 拦截 (MITM) 或劣质自签劫持
-            mitm_risk = True
+            mitm_risk = True   # 证书链验证失败 = TLS 拦截 / 自签劫持
         except Exception:
             pass  # 网络层失败不算 MITM (活性探测已通过)
 
-        # 3b) cloudflare trace: warp=on = 套壳 WARP 节点 (非真实出口, 降权标记) — 4s 窄超时
+        # 4b) cloudflare trace: warp=on = 套壳 WARP 节点 (非真实出口, 只打标记不淘汰)
         is_warp = False
         try:
             r = PROBE_SESSION.get(TRACE_URL, proxies=proxies, timeout=PROBE_RETRY_TIMEOUT, verify=True)
-            if r.status_code == 200:
-                if re.search(r"^warp=on", r.text, re.M):
-                    is_warp = True
+            if r.status_code == 200 and re.search(r"^warp=on", r.text, re.M):
+                is_warp = True
+                quality_flags.append("warp")
         except Exception:
             pass
 
-        # --- 4) 断流检测: 限时下载测速 (chunked 读 + 空闲计时; 多端点兜底防测速站被屏蔽) ---
-        # 断流签名: 连接建立且首包正常, 但中途停止送数据 → 空闲超时强断
-        speed_bps = 0
-        for speed_url in SPEED_TEST_URLS:
-            downloaded = 0
-            t_speed = time.time()
-            last_chunk_time = time.time()
-            try:
-                with PROBE_SESSION.get(speed_url, proxies=proxies,
-                                       timeout=(5, SPEED_TEST_BUDGET), stream=True) as r:
-                    if r.status_code == 200:
-                        for chunk in r.iter_content(chunk_size=65536):
-                            now = time.time()
-                            if chunk:
-                                downloaded += len(chunk)
-                                last_chunk_time = now
-                            # 总预算超限 → 正常截断 (拿已有数据算吞吐)
-                            if now - t_speed > SPEED_TEST_BUDGET:
-                                break
-                            # 空闲 > 3s 无任何数据 → 断流签名, 立即中止
-                            if now - last_chunk_time > 3.0:
-                                break
-                elapsed = max(time.time() - t_speed, 0.001)
-                if downloaded > 0:
-                    speed_bps = int(downloaded / elapsed)
-                    break  # 首个成功端点的结果即有效
-            except Exception:
-                continue
-        # 全部端点都失败 (下载0字节) → 视为断流 (活性已过但无法承载数据流)
-
-        # 断流判定: 连 70KB/s 都达不到 → 断流/极慢, 真实不可用
-        is_stalled = speed_bps < SPEED_MIN_BYTES_PER_S
-
-        result = {
-            "raw": raw,
-            "server": server,
-            "port": port,
-            "proto": proto,
-            "alive": True,
-            "latency_ms": int(latency_ms),
+        res.update({
             "exit_ip": exit_ip,
             "exit_country_online": exit_country,
             "exit_asn_online": exit_asn,
@@ -1331,12 +1690,10 @@ def test_single_node(item, keep_alive_check=True):
             "exit_isp_online": (exit_isp or "")[:120],
             "mitm_risk": mitm_risk,
             "is_warp": is_warp,
-            "speed_bps": speed_bps,
-            "is_stalled": is_stalled,
-        }
-        return result
-    except Exception:
-        return None
+        })
+        return res
+    except Exception as e:
+        return _make_result(item, "unreachable", "exception", f"{type(e).__name__}: {e}")
     finally:
         if proc and proc.poll() is None:
             proc.kill()
@@ -1357,133 +1714,731 @@ def run_liveness_test(candidates: list) -> list:
     done_count = [0]
 
     def _work(item):
-        return test_single_node(item)
+        t0 = time.time()
+        r = test_single_node(item)
+        if r is not None:
+            r["probe_secs"] = round(time.time() - t0, 2)
+        return r
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS_TEST) as ex:
         futs = {ex.submit(_work, it): it for it in candidates}
         for fut in as_completed(futs):
             done_count[0] += 1
             r = fut.result()
-            if r:
+            if r:   # ★ 三态化后 test_single_node 永不返回 None, 这里只防极端异常
                 results.append(r)
             if done_count[0] % 40 == 0:
-                print(f"[*] 测活进度: {done_count[0]}/{len(candidates)}, 通过 {len(results)}")
+                alive_n = sum(1 for x in results if x.get("alive"))
+                print(f"[*] 测活进度: {done_count[0]}/{len(candidates)}, 通过 {alive_n}")
 
-    alive = [r for r in results if r["alive"] and not r["is_stalled"]]
-    mitm = sum(1 for r in results if r["mitm_risk"])
-    stalled = sum(1 for r in results if r["is_stalled"])
-    print(f"[+] 测活完成: 真活 {len(alive)} | 断流淘汰 {stalled} | MITM 风险 {mitm}")
-    return results  # 保留全部信息, 分类阶段再决定去留
+    alive = [r for r in results if r.get("alive") and not r.get("is_stalled")]
+    mitm = sum(1 for r in results if r.get("mitm_risk"))
+    stalled = sum(1 for r in results if r.get("is_stalled"))
+    unmeasured = sum(1 for r in results if r.get("speed_unmeasured"))
+    print(f"[+] 测活完成: 真活 {len(alive)} | 断流 {stalled} | 未测到速度(保留) {unmeasured} | MITM {mitm}")
+
+    # ★ 并发压测埋点: 只统计"活性阶段"耗时 (不含 sing-box check / 出口IP / 测速)。
+    #   判据: 若存活节点的 p90 明显变大 (正常应 < 2s), 或大量节点卡满首击超时,
+    #   说明 48 并发已把 CPU/SNAT 压满, no_liveness 里混着"被自己挤死"的节点
+    #   → 下调 PROBE_CONCURRENCY (32/24) 再跑一轮, 对比真活数即可定论。
+    def _pct(arr, p):
+        return arr[min(int(len(arr) * p), len(arr) - 1)]
+
+    live_secs = sorted(r["liveness_secs"] for r in results
+                       if r.get("alive") and "liveness_secs" in r)
+    dead_secs = sorted(r["liveness_secs"] for r in results
+                       if not r.get("alive") and "liveness_secs" in r)
+    if live_secs:
+        print(f"[*] 活性耗时(存活节点): p50={_pct(live_secs, 0.5):.2f}s "
+              f"p90={_pct(live_secs, 0.9):.2f}s max={live_secs[-1]:.2f}s | 并发 {MAX_WORKERS_TEST}")
+    if dead_secs:
+        hit = sum(1 for s in dead_secs if s >= PROBE_TIMEOUT - 0.3)
+        print(f"[*] 活性耗时(未通节点): 卡满首击超时(≥{PROBE_TIMEOUT}s) {hit}/{len(dead_secs)} "
+              f"| 若该比例异常高, 说明并发把 CPU/SNAT 压满了")
+    total_secs = sorted(r["probe_secs"] for r in results if "probe_secs" in r)
+    if total_secs:
+        print(f"[*] 单节点全流程耗时: p50={_pct(total_secs, 0.5):.1f}s "
+              f"p90={_pct(total_secs, 0.9):.1f}s")
+
+    # ★ 淘汰原因直方图 (埋点): 看清漏斗, 后续所有规则调整都以此为依据
+    stage_hist = {}
+    for r in results:
+        if not r.get("alive"):
+            st = r.get("fail_stage") or "unknown"
+            stage_hist[st] = stage_hist.get(st, 0) + 1
+    if stage_hist:
+        print("[*] 未通过原因分布: " + " | ".join(
+            f"{k}={v}" for k, v in sorted(stage_hist.items(), key=lambda x: -x[1])))
+    return results  # 保留全部信息 (含失败节点), 分类阶段再决定去留
+
+
+# ════════════════════════════════════════════════════════════════════
+# 阶段 B1.5: 回源补抓 (用已测活节点作出口, 绕过源站对数据中心 IP 的拦截)
+# ════════════════════════════════════════════════════════════════════
+
+# 回源出口优先国家 (离大陆近、到源站 RTT 低, 且多为家宽/小机房段, 不易被 WAF 规则命中)
+REFETCH_PREFER_COUNTRIES = {"HK", "TW", "SG", "JP", "KR", "MO"}
+REFETCH_MAX_EGRESS = 4          # 最多换几个出口节点 (每个节点启动 ~1s, 不宜多)
+REFETCH_CONNECT_TIMEOUT = 5     # 连接超时 (秒) — 节点连不上要快速放弃
+REFETCH_READ_TIMEOUT = 15       # 读超时 (秒) — 源站回包, 不是下载大文件, 15s 足够
+REFETCH_TOTAL_BUDGET = 180      # 回源阶段总耗时上限 (秒) — 防止源站全挂时无限拖时间
+
+
+def expand_dedup(test_results: list, dedup_map: dict) -> tuple:
+    """把代表节点的测活结果回填给同 (server, port, proto, 凭据) 的重复 URI
+
+    返回 (expanded, backfilled)
+    """
+    result_by_key = {}
+    for r in test_results:
+        p = parse_node_uri(r["raw"])
+        if not p:
+            continue
+        fp = cred_fingerprint(p[0], r["proto"])
+        result_by_key[((r["server"] or "").lower(), r["port"], r["proto"], fp)] = r
+    expanded = list(test_results)
+    backfilled = 0
+    for key, uris in dedup_map.items():
+        if len(uris) <= 1:
+            continue
+        r = result_by_key.get(key)
+        if not r or not r.get("alive"):
+            continue
+        for extra_uri in uris[1:]:
+            clone = dict(r)
+            clone["raw"] = extra_uri
+            expanded.append(clone)
+            backfilled += 1
+    return expanded, backfilled
+
+
+def _pick_refetch_egress(alive_items: list, n: int) -> list:
+    """挑回源出口节点: 亚洲低延迟优先, 排除 WARP 套壳 / 断流节点
+
+    ★ 必须先去重: main() 里 expand_dedup 会把同一节点的测活结果克隆给它的重复 URI,
+      克隆体与原节点的 (exit_ip, latency_ms) 完全相同。若不去重, 按延迟排序后
+      前 4 名可能全是同一个节点的克隆 → 实际只有 1 个出口, 回源失败就整体失败。
+      这里用 (server, port, proto, 凭据) 还原"真实节点"身份。
+    """
+    cands, seen = [], set()
+    for r in alive_items:
+        if not r.get("exit_ip") or r.get("is_warp") or r.get("is_stalled"):
+            continue
+        ident = ((r.get("server") or "").lower(), r.get("port"), r.get("proto"), r.get("cred") or "")
+        if ident in seen:
+            continue
+        seen.add(ident)
+        cc = (r.get("exit_country_online") or "").upper()
+        tier = 0 if cc in REFETCH_PREFER_COUNTRIES else 1
+        lat = r.get("latency_ms")
+        cands.append((tier, lat if isinstance(lat, int) else 99999, r))
+    cands.sort(key=lambda x: (x[0], x[1]))
+    return [c[2] for c in cands[:n]]
+
+
+def _fetch_via_socks(url: str, socks_port: int):
+    """经本地 SOCKS 入站抓取 (独立 Session, 绝不跟随本机/环境代理)"""
+    s = requests.Session()
+    s.trust_env = False   # 关键: 否则环境里的 http_proxy 会覆盖, 又回到原出口
+    origin = urllib.parse.urlsplit(url)
+    s.headers.update({
+        "User-Agent": USER_AGENT,
+        "Accept": "*/*",
+        "Referer": f"{origin.scheme}://{origin.netloc}/",
+    })
+    proxies = {"http": f"socks5h://127.0.0.1:{socks_port}",
+               "https": f"socks5h://127.0.0.1:{socks_port}"}
+    try:
+        return s.get(url, proxies=proxies,
+                     timeout=(REFETCH_CONNECT_TIMEOUT, REFETCH_READ_TIMEOUT))
+    finally:
+        s.close()
+
+
+def _refetch_targets(failed: list) -> list:
+    """从抓取失败列表里挑出值得回源的 URL, 按 kind 优先级排序 (被拦的优先救)"""
+    prio = {"blocked": 0, "server": 1, "empty": 2, "network": 3}
+    items = sorted(((prio.get(k, 9), u) for u, k, _ in failed), key=lambda x: x[0])
+    seen, out = set(), []
+    for _, u in items:
+        if u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
+
+
+def refetch_via_alive_nodes(failed: list, alive_items: list) -> dict:
+    """用已测活节点作出口, 补抓被源站 WAF 拦截的订阅
+
+    背景 (实测):
+      shadowmere.xyz / shadowmere.akiel.dev 在 Cloudflare 上按出口 ASN 拦截数据中心 IP。
+      GitHub Actions 出口是 Azure → 恒 403。换备用域名无用 (同一 CF zone, 同一套规则);
+      套一层 Cloudflare Worker 也无用 (Worker 回源同样是数据中心 IP, 实测返回 522/403)。
+
+      唯一不依赖外部基建的办法: 池子里已经有上千个测活节点, 拿其中一个作出口去拉。
+      这些节点出口多为港台日新家宽/小机房, 不在源站的拦截名单里。
+
+    failed      : [(url, kind, err)]
+    alive_items : 测活结果中 status=alive 的项 (需带 raw / exit_ip / latency_ms)
+    返回 {url: set(uri)}  —— 仅含成功且解析出节点的
+    """
+    urls = _refetch_targets(failed)
+    if not urls:
+        return {}
+    # 纯网络抖动 (全部是 exception/timeout) 不启用回源:
+    # 为一次偶发超时白起 4 个 sing-box 进程不划算。只要有一个非 network 类失败
+    # (被拦/5xx/空内容) 才值得走回源, 顺带把 network 类也一起重试。
+    if not any(k != "network" for _, k, _ in failed):
+        print("[*] 抓取失败均为网络抖动, 不启用回源补抓")
+        return {}
+    egress = _pick_refetch_egress(alive_items, REFETCH_MAX_EGRESS)
+    if not egress:
+        print("[!] 回源补抓: 无可用的存活节点作出口, 跳过 (本次将缺少这些源站的节点)")
+        return {}
+
+    print(f"[*] 回源补抓: {len(urls)} 个源站抓取失败, 尝试 {len(egress)} 个存活节点作出口 ...")
+    exe = SINGBOX_BIN + (".exe" if os.name == "nt" else "")
+    recovered = {}
+    pending = list(urls)
+    t_refetch = time.time()
+    tried_egress = 0
+
+    def _out_of_budget() -> bool:
+        return time.time() - t_refetch > REFETCH_TOTAL_BUDGET
+
+    for node in egress:
+        if not pending:
+            break
+        if _out_of_budget():
+            print(f"[!] 回源补抓超出 {REFETCH_TOTAL_BUDGET}s 预算, 停止 (剩余 {len(pending)} 个源站未解决)")
+            break
+        parsed = parse_node_uri(node["raw"])
+        if not parsed:
+            continue
+        tried_egress += 1
+        outbound = parsed[0]
+        socks_port = _alloc_socks_port()
+        cfg_path = os.path.join(RUNTIME_DIR, f"rf_{uuid.uuid4().hex[:10]}.json")
+        proc = None
+        try:
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                # allow_front=False: 回源必须真的从节点出去, 不能叠本机前置代理
+                json.dump(build_test_config(outbound, socks_port, allow_front=False), f)
+            proc = subprocess.Popen(
+                [exe, "run", "-c", cfg_path],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0),
+            )
+            deadline = time.time() + 8
+            ready = False
+            while time.time() < deadline:
+                if proc.poll() is not None:
+                    break
+                try:
+                    with socket.create_connection(("127.0.0.1", socks_port), timeout=0.4):
+                        ready = True
+                        break
+                except Exception:
+                    time.sleep(0.15)
+            if not ready:
+                print(f"  [-] 出口 {node.get('exit_country_online')}/{node.get('exit_ip')} 未能启动, 换下一个")
+                continue
+
+            cc = node.get("exit_country_online") or "??"
+            for url in list(pending):
+                if _out_of_budget():
+                    print(f"  [!] 超出 {REFETCH_TOTAL_BUDGET}s 预算, 中止本出口剩余源站")
+                    break
+                try:
+                    r = _fetch_via_socks(url, socks_port)
+                    if r.status_code != 200:
+                        print(f"  [!] 出口 {cc} 仍被拒 {url} → HTTP {r.status_code}")
+                        continue
+                    got = extract_nodes_from_text(r.text)
+                    if not got:
+                        print(f"  [!] 出口 {cc} 返回 200 但解析 0 节点 {url}")
+                        continue
+                    recovered[url] = got
+                    pending.remove(url)
+                    print(f"  [+] 回源成功 (出口 {cc}/{node.get('exit_ip')}) {url} → {len(got)} 节点")
+                except Exception as e:
+                    print(f"  [!] 出口 {cc} 回源异常 {url} → {type(e).__name__}: {str(e)[:60]}")
+        except Exception as e:
+            print(f"  [!] 回源出口准备失败 → {type(e).__name__}: {str(e)[:60]}")
+        finally:
+            if proc and proc.poll() is None:
+                proc.kill()
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    pass
+            try:
+                if os.path.exists(cfg_path):
+                    os.remove(cfg_path)
+            except OSError:
+                pass
+
+    if pending:
+        print(f"[!] 回源补抓仍有 {len(pending)} 个源站未解决 (已试 {tried_egress} 个出口, "
+              f"耗时 {time.time() - t_refetch:.0f}s)")
+    elif recovered:
+        print(f"[+] 回源补抓完成: {len(recovered)} 个源站恢复, 耗时 {time.time() - t_refetch:.0f}s")
+    return recovered
 
 
 # ═══════════════════════════════════════════N═══════════════════════
 # 阶段 B2: 家宽链式复测 (chain relay retest)
 # ════════════════════════════════════════════════════════════════════
 
-def chain_retest(test_results: list) -> list:
-    """家宽链式复测: 模拟用户 v2rayN 链式 (前置 → 家宽节点 → 目标)
+# ★ 家宽区协议准入: 只收 TCP 协议, 排除 QUIC/UDP
+#
+# 【为什么】家宽节点入口 IP 在国内基本不可直连, 用户必须挂前置 (v2rayN 的
+#   socks5/http 链式)。而 socks5/http 前置对 UDP 支持极差 —— 多数实现不做
+#   UDP associate, hysteria2/tuic 这类 QUIC 协议在链式下 100% 失败。
+#
+# 【实测】本机 (国内网络) 对上一版 5 个家宽节点逐个验证:
+#   hy2  US 155.117.19.17  直连 no_liveness | 经 10808 前置 no_liveness
+#   hy2  SG s3.huhiuh.space 直连 no_liveness | 经 10808 前置 no_liveness
+#   tuic 同类问题
+#   vless TR 177.3.208.65  直连 208KB/s   | 经前置 619KB/s      ← TCP, 两场景都可用
+#   vmess KR 183.109.131.75 直连超时      | 经前置 1.46MB/s     ← TCP, 前置可用
+#   vless TW hinet1.2yly.com 直连超时     | 经前置也超时         ← 节点本身已死
+# 结论: 家宽区放 UDP 协议等于塞死节点, 必须排除。
+UDP_ONLY_PROTOS = {"hysteria2", "hysteria", "tuic"}
 
-    实测背景: 用户反馈家宽节点在 v2rayN 链式代理下仅 ~50% 可用。
-    根因: 单跳测活通过 ≠ 双跳可用 (部分节点不允许"已被代理的流量"再入,
-    或 UDP/QUIC 节点无法过 socks 链)。解决: CI 里用最快存活节点当前置,
-    对家宽候选做双跳复测 — 双跳通过的才进家宽专区。
+# 前置视角优先地区 (国内用户前置多为港台日新韩)
+RELAY_PREFER_COUNTRIES = {"HK", "TW", "JP", "SG", "KR", "MO"}
 
-    流程: 先跑一遍轻量分类拿到家宽候选 → 取最快存活节点做 relay →
-    家宽候选逐个双跳复测 → 双跳也活的保留, 双跳死的降级普通区。
-    返回: 更新 net_type 后的 test_results (原对象原地修改)。
+# ★ 家宽多端验证 (v2):
+#   旧版只用 1 条 relay, 单点抖动就会把整批家宽误杀/误放; 现在同时起 3 条不同出口
+#   的 relay 做"多端交叉验证", 至少 2 个视角通过才入区。
+RES_CHAIN_MAX_RELAYS = 3        # 同时启动的 relay 视角数 (各自独立出口 IP)
+RES_CHAIN_MIN_PASS = 2          # 至少几个视角通过才算家宽可用
+RES_CHAIN_MAX_CANDIDATES = _env_int("RES_CHAIN_MAX_CANDIDATES", 100, 400)
+RES_CHAIN_SECOND_ROUND = os.environ.get("RES_CHAIN_SECOND_ROUND", "1").strip().lower() in (
+    "1", "true", "yes", "on")
+RES_CHAIN_SECOND_GAP = 20       # 两轮间隔 (秒): 给"刚死节点"暴露的时间窗口
+
+
+def _probe_via_socks(socks_port: int, timeout: int = 12) -> bool:
+    """经本地 socks 前置做一次真实 HTTPS 探活
+
+    ★ 为什么必须探: 节点"能连上"不等于"能转发"。实测有节点活性探测 204 通过,
+      但经它转发 HTTPS 时直接断流 (服务端只放行特定域名)。若不先验证 relay 本身
+      能转发, 一个坏 relay 会把全部家宽候选判死, 家宽区直接归零。
     """
-    # 1) 轻量分类拿家宽候选 (复用 classify_and_export 的候选判定, 但不导出)
-    #    家宽候选 = ip-api/mmdb 六信号判 residential/mobile 的节点
-    ip_api_info = {}
-    all_exit_ips = list({r["exit_ip"] for r in test_results if r.get("exit_ip")})
-    if all_exit_ips:
+    s = requests.Session()
+    s.trust_env = False          # 绝不能吃到环境里的 http_proxy
+    proxies = {"http": f"socks5h://127.0.0.1:{socks_port}",
+               "https": f"socks5h://127.0.0.1:{socks_port}"}
+    try:
+        r = s.get("https://www.gstatic.com/generate_204",
+                  proxies=proxies, timeout=timeout, allow_redirects=False)
+        return r.status_code in (200, 204)
+    except Exception:
+        return False
+    finally:
+        s.close()
+
+
+def _start_relay_proxy(relay_out: dict):
+    """起一个 sing-box 作 socks5 前置 (socks 入站 → relay 节点出站)
+
+    返回 (proc, port, cfg_path); 起不来返回 (None, 0, cfg_path)
+
+    ★ 与旧实现的关键区别: 旧版用 sing-box 内部 detour (node → relay) 做双跳,
+      这样 UDP 也能被 relay 转发, 于是 hy2 节点在 CI 里"双跳通过", 到用户手上
+      却全挂。现在改成"真起一个 socks5 前置", 与被测节点的关系等价于
+      用户 v2rayN 的"前置代理 + 目标节点", UDP 走不通就会如实失败。
+    """
+    exe = SINGBOX_BIN + (".exe" if os.name == "nt" else "")
+    port = _alloc_socks_port()
+    cfg_path = os.path.join(RUNTIME_DIR, f"relay_{uuid.uuid4().hex[:10]}.json")
+    ob = dict(relay_out)
+    ob.pop("detour", None)
+    proc = None
+    try:
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            json.dump(build_test_config(ob, port, allow_front=False), f)
+        # 先 check 再 run: 内核不认该协议/字段时能给出原因, 而不是只留一句"启动失败"
+        chk = subprocess.run([exe, "check", "-c", cfg_path],
+                             capture_output=True, text=True, timeout=15,
+                             creationflags=(subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0))
+        if chk.returncode != 0:
+            detail = (chk.stderr or chk.stdout or "").strip().splitlines()
+            print(f"[!] 链式 relay 配置校验失败: {(detail[0] if detail else '?')[:100]}")
+            os.remove(cfg_path)
+            return None, 0, cfg_path
+        proc = subprocess.Popen(
+            [exe, "run", "-c", cfg_path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=(subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0),
+        )
+        deadline = time.time() + 8
+        while time.time() < deadline:
+            if proc.poll() is not None:
+                break
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.4):
+                    return proc, port, cfg_path
+            except Exception:
+                time.sleep(0.15)
+    except Exception as e:
+        print(f"[!] 链式 relay 启动失败: {type(e).__name__}: {str(e)[:60]}")
+    # 失败清理
+    if proc is not None:
         try:
-            ip_api_info = ip_api_batch_lookup(all_exit_ips)
-        except Exception as e:
-            print(f"[!] 链式复测: ip-api 批量失败 ({e}), 跳过链式复测")
-            return test_results
+            if proc.poll() is None:
+                proc.kill()
+        except Exception:
+            pass
+    try:
+        os.remove(cfg_path)
+    except OSError:
+        pass
+    return None, 0, cfg_path
 
-    res_candidates = {}
-    for r in test_results:
-        if not (r.get("alive") and not r.get("is_stalled")):
-            continue
-        rec = ip_api_info.get(r.get("exit_ip"), {})
-        t, c = classify_network_type(r["exit_ip"], r.get("exit_country_online"),
-                                     r.get("exit_asn_online"),
-                                     r.get("exit_asn_org_online"), rec or None)
-        if t in ("residential", "mobile") and c >= 60:
-            res_candidates[(r["server"].lower(), r["port"], r["proto"])] = r
 
-    if not res_candidates:
-        print("[*] 链式复测: 无家宽候选, 跳过")
+def _stop_relay_proxy(proc, cfg_path):
+    if proc:
+        try:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    proc.kill()
+        except Exception:
+            pass
+    try:
+        os.remove(cfg_path)
+    except OSError:
+        pass
+
+
+def _entry_residential_like(server: str, country_reader, asn_reader):
+    """按**入口服务器 IP** 判断是否值得做家宽链式复测
+
+    ★ 为什么要看入口: 家宽节点入口在国内基本不可直连, Azure 直连阶段大概率
+      no_liveness —— 旧版只对"直连已存活"的节点做复测, 等于把真正的家宽节点
+      在第一步就误杀了。入口 IP 落在民用 ASN/运营商特征段 = 有复测价值。
+    返回 (country, net_type, confidence) 或 None
+    """
+    if not server:
+        return None
+    ip = server if is_ip_literal(server) else resolve_host(server)
+    if not ip:
+        return None
+    try:
+        country, asn, org = offline_ip_lookup(ip, country_reader, asn_reader)
+    except Exception:
+        return None
+    if not country:
+        return None
+    t, c = classify_network_type(ip, country, asn, org, None)
+    if t in ("residential", "mobile") and c >= 60:
+        return country, t, c
+    return None
+
+
+def chain_retest(test_results: list) -> list:
+    """家宽链式复测 (多端验证): 模拟用户 v2rayN 链式 (前置 → 家宽节点 → 目标)
+
+    【为什么必须用"真 socks 前置"而不是 sing-box detour】
+      旧实现把 relay 作为 node 的 detour (sing-box 内部双跳)。这样 UDP 也能被
+      relay 转发, 于是 hysteria2/tuic 节点在 CI 里"双跳通过", 进家宽区; 但用户
+      的 v2rayN 前置是 socks5/http 代理, 不做 UDP associate, hy2 在客户端里 100%
+      失败 —— 这就是"家宽节点开不开前置都不能用"的直接原因。
+
+    【v2 多端验证 (本次改动)】
+      旧版只用 **1 个 relay**、且只复测"直连已经存活"的家宽候选:
+        ① 直连失败的真家宽节点直接被误杀 (它们本来就必须挂前置才通)
+        ② 单 relay 抖动/转发有问题时, 整批家宽会被判死或误判活
+      现在:
+        ① 候选 = 直连存活的家宽/移动节点 **+ 入口 IP 属于民用 ASN 但直连失败节点**
+        ② 同时起 **最多 3 条不同出口 IP 的 relay**, 每个候选在 3 个视角各测一次
+        ③ 判定: 至少 2 个视角通过; 或 1 个视角完整测到吞吐 + 至少 2 个视角存活
+           (单 relay 时才降级为 1 个视角)
+        ④ 任一视角测到吞吐就回写实测速度, 不再被单条 relay 的带宽上限误杀
+
+    返回: test_results (原对象原地修改; 失败者标 _chain_failed)
+    """
+    res_candidates = {}   # key -> result
+    udp_dropped = 0
+
+    country_reader = asn_reader = None
+    try:
+        country_reader = maxminddb.open_database(os.path.join(RUNTIME_DIR, "Country.mmdb"))
+        asn_reader = maxminddb.open_database(os.path.join(RUNTIME_DIR, "ASN.mmdb"))
+    except Exception as e:
+        print(f"[!] 链式复测: MaxMind 数据库打开失败 ({e}), 入口判定将跳过")
+
+    try:
+        # ── 1) 直连已存活的家宽/移动节点 ──
+        ip_api_info = {}
+        all_exit_ips = list({r["exit_ip"] for r in test_results if r.get("exit_ip")})
+        if all_exit_ips:
+            try:
+                ip_api_info = ip_api_batch_lookup(all_exit_ips)
+            except Exception as e:
+                print(f"[!] 链式复测: ip-api 批量失败 ({e}), 仅做入口判定")
+
+        for r in test_results:
+            if not (r.get("alive") and not r.get("is_stalled")):
+                continue
+            rec = ip_api_info.get(r.get("exit_ip"), {})
+            t, c = classify_network_type(r["exit_ip"], r.get("exit_country_online"),
+                                         r.get("exit_asn_online"),
+                                         r.get("exit_asn_org_online"), rec or None)
+            if t not in ("residential", "mobile") or c < 60:
+                continue
+            if (r.get("proto") or "").lower() in UDP_ONLY_PROTOS:
+                r["_chain_failed"] = True
+                udp_dropped += 1
+                continue
+            res_candidates[((r.get("server") or "").lower(), r["port"], r["proto"])] = r
+
+        # ── 2) 直连失败但"入口像家宽"的节点: 给第二视角机会 (减少误杀) ──
+        #    没有存活节点就没有 relay 视角, 这一步只会白花 DNS/查询时间, 直接跳过。
+        failed_entry = []
+        if country_reader and asn_reader and any(r.get("alive") for r in test_results):
+            candidates_for_entry = []
+            seen = set(res_candidates)
+            for r in test_results:
+                if r.get("alive") or (r.get("proto") or "").lower() in UDP_ONLY_PROTOS:
+                    continue
+                k = ((r.get("server") or "").lower(), r.get("port"), r.get("proto"))
+                if k in seen:
+                    continue
+                seen.add(k)
+                candidates_for_entry.append(r)
+
+            def _mark(r):
+                return r, _entry_residential_like(r.get("server"), country_reader, asn_reader)
+
+            if candidates_for_entry:
+                print(f"[*] 链式复测: 入口家宽判定 {len(candidates_for_entry)} 个直连失败候选 ...")
+                with ThreadPoolExecutor(max_workers=32) as ex:
+                    for r, ent in ex.map(_mark, candidates_for_entry):
+                        if ent:
+                            r["entry_country"] = ent[0]
+                            r["_entry_res_candidate"] = True
+                            failed_entry.append(r)
+                print(f"[+] 链式复测: 入口像家宽/移动的直连失败节点 {len(failed_entry)} 个")
+
+    finally:
+        if country_reader:
+            country_reader.close()
+        if asn_reader:
+            asn_reader.close()
+
+    if udp_dropped:
+        print(f"[*] 链式复测: {udp_dropped} 个 UDP 家宽候选直接排除 "
+              f"(hy2/tuic 过不了 socks5 前置, 用户链式必挂)")
+
+    if not res_candidates and not failed_entry:
+        print("[*] 链式复测: 无 TCP 家宽候选, 跳过")
         return test_results
-    print(f"[*] 链式复测: {len(res_candidates)} 个家宽候选")
 
-    # 2) 选 relay: 全体存活节点里延迟最低、非家宽候选自己 (避免自己套自己)
+    # 3) 候选上限: 先放"直连已存活"的家宽, 再按入口地区 (亚洲优先) 补入口候选
+    for r in failed_entry:
+        res_candidates.setdefault((r["server"].lower(), r["port"], r["proto"]), r)
+
+    def _prio(r):
+        cc = (r.get("entry_country") or r.get("exit_country_online") or "").upper()
+        asia = 0 if cc in RELAY_PREFER_COUNTRIES else 1
+        return (asia, r.get("latency_ms") or 99999)
+
+    ordered = sorted(res_candidates.values(), key=_prio)[:RES_CHAIN_MAX_CANDIDATES]
+    if len(res_candidates) > RES_CHAIN_MAX_CANDIDATES:
+        print(f"[*] 链式复测: 候选 {len(res_candidates)} 超过上限 "
+              f"{RES_CHAIN_MAX_CANDIDATES}, 按亚洲优先截断")
+    print(f"[*] 链式复测: {len(ordered)} 个 TCP 家宽候选 (多端验证)")
+
+    # 4) 选 relay: 亚洲优先 + TCP + 延迟升序 + **出口 IP 不同** (保证多个独立视角)
+    def _relay_rank(r):
+        cc = (r.get("exit_country_online") or "").upper()
+        asia = 0 if cc in RELAY_PREFER_COUNTRIES else 1
+        udp = 1 if (r.get("proto") or "").lower() in UDP_ONLY_PROTOS else 0
+        lat = r.get("latency_ms")
+        return (asia, udp, lat if lat is not None else 99999)
+
     alive_sorted = sorted(
         [r for r in test_results if r.get("alive") and not r.get("is_stalled")],
-        key=lambda x: x.get("latency_ms", 99999))
-    relay_result = None
+        key=_relay_rank)
+
+    cand_keys = {((r.get("server") or "").lower(), r["port"], r["proto"]) for r in ordered}
+    relay_pool = []
+    seen_exit = set()
     for r in alive_sorted:
-        if (r["server"].lower(), r["port"], r["proto"]) not in res_candidates:
-            relay_result = r
+        if ((r.get("server") or "").lower(), r["port"], r["proto"]) in cand_keys:
+            continue
+        exit_ip = r.get("exit_ip") or r.get("server")
+        if exit_ip in seen_exit:
+            continue
+        ob = r.get("outbound")
+        if not ob:
+            p = parse_node_uri(r["raw"])
+            ob = p[0] if p else None
+        if not ob:
+            continue
+        ob = dict(ob)
+        ob.pop("detour", None)
+        seen_exit.add(exit_ip)
+        relay_pool.append((r, ob))
+        if len(relay_pool) >= RES_CHAIN_MAX_RELAYS:
             break
-    if not relay_result:
+
+    if not relay_pool:
         print("[!] 链式复测: 无可用 relay 节点, 跳过")
         return test_results
-    relay_out = relay_result.get("outbound")
-    if not relay_out:
-        # 重新解析 relay 的 raw 拿 outbound
-        p = parse_node_uri(relay_result["raw"])
-        if p:
-            relay_out = p[0]
-    if not relay_out:
-        print("[!] 链式复测: relay outbound 构建失败, 跳过")
-        return test_results
-    # relay 必须剥离 detour (前置链复用时防循环)
-    relay_out = dict(relay_out)
-    relay_out.pop("detour", None)
-    print(f"[*] 链式 relay: {relay_result['proto']} {relay_result['server']}:{relay_result['port']} "
-          f"(延迟 {relay_result['latency_ms']}ms)")
 
-    # 3) 家宽候选逐个双跳复测 (注入 CHAIN_RELAY_OUT, test_single_node 自动加 detour)
-    os.environ["CHAIN_RELAY_OUT"] = json.dumps(relay_out)
-    chain_alive, chain_dead = [], []
+    relays = []   # (proc, port, cfg, relay_result)
     try:
-        for key, r in res_candidates.items():
+        for cand, ob in relay_pool:
+            p, port, cfg = _start_relay_proxy(ob)
+            if not p:
+                continue
+            if not _probe_via_socks(port):
+                print(f"  [-] relay {cand['server']}:{cand['port']} 起得来但转发不通, 跳过")
+                _stop_relay_proxy(p, cfg)
+                continue
+            relays.append((p, port, cfg, cand))
+            print(f"[*] 链式 relay #{len(relays)}: {cand['proto']} {cand['server']}:"
+                  f"{cand['port']} ({cand.get('exit_country_online') or '??'}, "
+                  f"{cand['latency_ms']}ms → 视角口 127.0.0.1:{port})")
+
+        if not relays:
+            print(f"[!] 链式复测: {len(relay_pool)} 个 relay 候选都不可用, 跳过")
+            return test_results
+
+        required = RES_CHAIN_MIN_PASS if len(relays) >= RES_CHAIN_MIN_PASS else len(relays)
+
+        # 5) 多端矩阵测试: 候选 × relay, 每条 relay 内部并发 4 (共用带宽, 避免互相挤成 stalled)
+        def _one(args):
+            r, (proc, port, cfg, relay_r) = args
             item = (r["raw"], r.get("outbound") or (parse_node_uri(r["raw"]) or [None])[0],
                     r["server"], r["port"], r["proto"])
             if not item[1]:
+                return r, relay_r, None
+            try:
+                re = test_single_node(item, front_proxy=f"socks5://127.0.0.1:{port}")
+            except Exception:
+                return r, relay_r, None
+            return r, relay_r, re
+
+        tasks = [(r, rel) for r in ordered for rel in relays]
+        wins = {id(r): [] for r in ordered}
+        with ThreadPoolExecutor(max_workers=max(1, min(4, len(ordered))) * len(relays)) as ex:
+            for r, relay_r, re in ex.map(_one, tasks):
+                if not re or not re.get("alive") or re.get("is_stalled"):
+                    continue
+                wins[id(r)].append((relay_r, re))
+
+        chain_alive, chain_dead = [], []
+        for r in ordered:
+            ws = wins[id(r)]
+            hard = [x for x in ws if not x[1].get("speed_unmeasured")]
+            ok = len(ws) >= required or (len(hard) >= 1 and len(ws) >= 2)
+            if len(relays) == 1:
+                ok = len(hard) >= 1
+            if not ok:
+                r["_chain_failed"] = True
                 chain_dead.append(r)
                 continue
-            recheck = test_single_node(item)
-            if recheck and recheck.get("alive") and not recheck.get("is_stalled"):
-                chain_alive.append(r)
-            else:
-                chain_dead.append(r)
+
+            best = min((x[1] for x in ws), key=lambda re: re.get("latency_ms") or 99999)
+            speeds = [x[1].get("speed_bps") or 0 for x in hard]
+            r["alive"] = True
+            r["status"] = "alive"
+            r["fail_stage"] = ""
+            r["fail_detail"] = ""
+            r["latency_ms"] = best.get("latency_ms") or r.get("latency_ms") or 99999
+            if best.get("exit_ip"):
+                r["exit_ip"] = best["exit_ip"]
+                r["exit_country_online"] = best.get("exit_country_online")
+                r["exit_asn_online"] = best.get("exit_asn_online")
+                r["exit_asn_org_online"] = best.get("exit_asn_org_online") or ""
+                r["exit_isp_online"] = best.get("exit_isp_online") or ""
+            r["speed_bps"] = max(speeds) if speeds else 0
+            r["speed_unmeasured"] = not bool(hard)
+            r["is_stalled"] = False
+            r["_chain_verified"] = True
+            r["_chain_wins"] = len(ws)
+            chain_alive.append(r)
+
+        print(f"[+] 链式复测完成 ({len(relays)} 端验证): 可用 {len(chain_alive)} | "
+              f"失败降级 {len(chain_dead)}")
+
+        # 6) ★ 第二轮复核 (只针对已通过的家宽候选): 免费节点常在"测完到发布"的几分钟
+        #    内死掉。参考项目同样做两轮 (间隔 45s)。这里再跑一轮, 避免把刚死的节点放出。
+        if RES_CHAIN_SECOND_ROUND and chain_alive:
+            time.sleep(RES_CHAIN_SECOND_GAP)
+            tasks2 = [(r, rel) for r in chain_alive for rel in relays]
+            wins2 = {id(r): [] for r in chain_alive}
+            with ThreadPoolExecutor(max_workers=max(1, min(4, len(chain_alive))) * len(relays)) as ex:
+                for r, relay_r, re in ex.map(_one, tasks2):
+                    if re and re.get("alive") and not re.get("is_stalled"):
+                        wins2[id(r)].append(re)
+            survivors = []
+            for r in chain_alive:
+                ws = wins2.get(id(r)) or []
+                if not ws:
+                    r["_chain_failed"] = True
+                    chain_dead.append(r)
+                    continue
+                best = min(ws, key=lambda re: re.get("latency_ms") or 99999)
+                r["latency_ms"] = best.get("latency_ms") or r.get("latency_ms")
+                if best.get("exit_ip"):
+                    r["exit_ip"] = best["exit_ip"]
+                    r["exit_country_online"] = best.get("exit_country_online")
+                    r["exit_asn_online"] = best.get("exit_asn_online")
+                    r["exit_asn_org_online"] = best.get("exit_asn_org_online") or ""
+                    r["exit_isp_online"] = best.get("exit_isp_online") or ""
+                hard2 = [x for x in ws if not x.get("speed_unmeasured")]
+                if hard2:
+                    r["speed_bps"] = max(x.get("speed_bps") or 0 for x in hard2)
+                    r["speed_unmeasured"] = False
+                r["_chain_round2"] = len(ws)
+                survivors.append(r)
+            dropped2 = len(chain_alive) - len(survivors)
+            chain_alive = survivors
+            if dropped2:
+                print(f"[!] 第二轮复核剔除 {dropped2} 个已失效家宽节点")
+        return test_results
     finally:
-        os.environ.pop("CHAIN_RELAY_OUT", None)
-
-    # 4) 双跳失败的 → 降级普通区 (不从订阅删除, 用户直连场景仍可能可用)
-    for r in chain_dead:
-        r["_chain_failed"] = True
-
-    print(f"[+] 链式复测完成: 双跳可用 {len(chain_alive)} | 双跳失败降级 {len(chain_dead)}")
-    return test_results
+        for p, port, cfg, _ in relays:
+            _stop_relay_proxy(p, cfg)
 
 
 # ═══════════════════════════════════════════N═══════════════════════
 # 阶段 C: 出口 IP 批量情报 (ip-api.com 免费 batch) + 离线兜底
 # ═══════════════════════════════════════════N═══════════════════════
 
+# ★ 全局 IP 情报缓存: chain_retest 和 classify_and_export 都会查同一批出口 IP,
+#   旧版各查一次 (免费层 15 req/min), 重复批次要白白等 4s/批。这里进程内复用。
+_IP_API_CACHE = {}
+
+
 def ip_api_batch_lookup(ip_list: list) -> dict:
-    """ip-api.com batch (免费 HTTP, ≤100/req, 15 req/min → 1500 IP/min)"""
+    """ip-api.com batch (免费 HTTP, ≤100/req, 15 req/min → 1500 IP/min)
+
+    ★ 带进程内缓存 + 最后一批不再 sleep, 避免 chain_retest / classify_and_export
+      对同一批出口 IP 重复查询和重复限速等待。"""
     info = {}
+    todo = []
+    for ip in ip_list:
+        if ip in _IP_API_CACHE:
+            info[ip] = _IP_API_CACHE[ip]
+        elif ip not in todo:
+            todo.append(ip)
+    if not todo:
+        return info
     session = requests.Session()
     session.trust_env = True  # 直连即可; ip-api.com 免费层全球可达 (CI 无代理/本地走系统代理均可)
-    total_batches = (len(ip_list) + IP_API_BATCH_SIZE - 1) // IP_API_BATCH_SIZE
-    for bi, i in enumerate(range(0, len(ip_list), IP_API_BATCH_SIZE), 1):
-        chunk = ip_list[i:i + IP_API_BATCH_SIZE]
+    total_batches = (len(todo) + IP_API_BATCH_SIZE - 1) // IP_API_BATCH_SIZE
+    for bi, i in enumerate(range(0, len(todo), IP_API_BATCH_SIZE), 1):
+        chunk = todo[i:i + IP_API_BATCH_SIZE]
         payload = [{"query": ip} for ip in chunk]
         for attempt in range(3):
             try:
@@ -1491,8 +2446,9 @@ def ip_api_batch_lookup(ip_list: list) -> dict:
                 if r.status_code == 200:
                     for rec in r.json():
                         q = rec.get("query")
-                        if q:
+                        if q and rec.get("status", "success") == "success":
                             info[q] = rec
+                            _IP_API_CACHE[q] = rec
                     break
                 elif r.status_code == 429:
                     time.sleep(4 + attempt * 3)
@@ -1502,7 +2458,8 @@ def ip_api_batch_lookup(ip_list: list) -> dict:
                 time.sleep(2)
         if total_batches >= 3 and (bi % 5 == 0 or bi == total_batches):
             print(f"[*] ip-api 进度: 批 {bi}/{total_batches} ({len(info)} IP 已查)")
-        time.sleep(IP_API_BATCH_RPS_INTERVAL)
+        if bi < total_batches:   # 最后一批不用再等 (旧版白等 4.2s)
+            time.sleep(IP_API_BATCH_RPS_INTERVAL)
     return info
 
 
@@ -1526,15 +2483,25 @@ def offline_ip_lookup(ip: str, country_reader, asn_reader) -> tuple:
 
 
 def get_rdns(ip: str) -> str:
-    old = socket.getdefaulttimeout()
-    try:
-        socket.setdefaulttimeout(2.0)
-        host, _, _ = socket.gethostbyaddr(ip)
-        return host.lower()
-    except Exception:
-        return ""
-    finally:
-        socket.setdefaulttimeout(old)
+    """反向 DNS 查询 (★ 线程安全)
+
+    旧实现用 socket.setdefaulttimeout(2.0) 改的是**进程级全局状态**,
+    在 32 线程的分类池里会污染其他线程的 socket 超时 (包括探测用的),
+    造成随机超时/随机失败。现在改为子线程 + join 控制超时, 不碰全局状态。
+    """
+    box = []
+
+    def _work():
+        try:
+            host, _, _ = socket.gethostbyaddr(ip)
+            box.append(host.lower())
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_work, daemon=True)
+    t.start()
+    t.join(2.0)
+    return box[0] if box else ""
 
 
 def classify_network_type(ip: str, country: str, asn, org: str, ip_api_rec: dict = None) -> tuple:
@@ -1607,15 +2574,16 @@ def classify_network_type(ip: str, country: str, asn, org: str, ip_api_rec: dict
             if kw in org_lower:
                 return "residential", 70
 
-    # 5) rDNS 兜底
-    rdns = get_rdns(ip_str)
-    if rdns:
-        for kw in IDC_NAME_PATTERNS:
-            if kw in rdns:
-                return "datacenter", 60
-        for kw in RESIDENTIAL_NAME_PATTERNS:
-            if kw in rdns:
-                return "residential", 60
+    # 5) rDNS 兜底 (默认关闭: 每个未知节点最多 2s, 几百个未知 IP 会明显拖慢分类)
+    if ENABLE_RDNS:
+        rdns = get_rdns(ip_str)
+        if rdns:
+            for kw in IDC_NAME_PATTERNS:
+                if kw in rdns:
+                    return "datacenter", 60
+            for kw in RESIDENTIAL_NAME_PATTERNS:
+                if kw in rdns:
+                    return "residential", 60
 
     return "unknown", 30
 
@@ -1956,12 +2924,103 @@ def ipapi_is_verify(ip: str) -> dict:
         return {}
 
 
+def cred_fingerprint(outbound: dict, proto: str) -> str:
+    """凭据指纹: 各协议的核心身份字段 (同 server+port+proto+凭据 = 同一节点)"""
+    try:
+        if proto == "vless":
+            return f"{outbound.get('uuid','')}"
+        if proto == "vmess":
+            return f"{outbound.get('uuid','') or outbound.get('user_id','')}"
+        if proto == "trojan":
+            return f"{outbound.get('password','')}"
+        if proto == "shadowsocks":
+            return f"{outbound.get('method','')}|{outbound.get('password','')}"
+        if proto == "hysteria2":
+            return f"{outbound.get('password','') or ''}|{outbound.get('server_ports','')}"
+        if proto == "tuic":
+            return f"{outbound.get('uuid','')}|{outbound.get('password','')}"
+        if proto == "anytls":
+            return f"{outbound.get('password','')}"
+        return json.dumps({k: v for k, v in outbound.items()
+                           if k in ("uuid", "password", "user_id", "method")}, sort_keys=True)
+    except Exception:
+        return ""  # 指纹失败 → 不合并 (宁慢不错)
+
+
+def load_state() -> dict:
+    """读取跨运行记忆 (output/state.json); 缺失/损坏一律返回空 dict"""
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_state(state: dict):
+    """原子写入跨运行记忆"""
+    try:
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, STATE_FILE)
+    except Exception as e:
+        print(f"[!] state.json 写入失败: {e}")
+
+
+def state_key(server, port, proto, cred="") -> str:
+    """记忆 key 含凭据: 同 host:port 上不同凭据是不同节点,
+    否则活凭据会把死凭据的 consec_dead 重置, 历史轨迹会串号。"""
+    return f"{(server or '').lower()}:{port}|{proto}|{cred}"
+
+
+def build_state(test_results: list, prev_state: dict) -> dict:
+    """按本轮结果更新记忆
+
+    - 本轮出现的 key: 累加 ever / 重置或累加 consec_dead
+    - 本轮未出现的 key: 保留最多 3 轮 (miss 计数), 防订阅源抖动导致历史被清空
+    - 从未活过且连续失败超限的: 丢弃 (无参考价值, 也避免 state.json 无限膨胀)
+
+    注: 记忆只作历史轨迹留档, 不再影响出库 (救援池已下线)。
+    """
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    merged = {}
+    for r in test_results:
+        k = state_key(r.get("server"), r.get("port"), r.get("proto"), r.get("cred", ""))
+        alive = bool(r.get("alive"))
+        if k in merged:
+            merged[k] = merged[k] or alive     # 同 key 多份 (回填克隆) 任一份活即算活
+        else:
+            merged[k] = alive
+
+    out = {}
+    for k, rec in prev_state.items():
+        if k in merged:
+            continue
+        miss = rec.get("miss", 0) + 1
+        if miss > 3:
+            continue
+        out[k] = {
+            "ever": rec.get("ever", 0),
+            "consec_dead": rec.get("consec_dead", 0),
+            "last": rec.get("last", ""),
+            "miss": miss,
+        }
+    for k, alive in merged.items():
+        prev = prev_state.get(k) or {}
+        ever = prev.get("ever", 0) + (1 if alive else 0)
+        consec = 0 if alive else prev.get("consec_dead", 0) + 1
+        if ever == 0 and consec >= STATE_MAX_CONSEC_DEAD:
+            continue      # 从没活过且已判死 → 不再记忆
+        out[k] = {"ever": ever, "consec_dead": consec, "last": today, "miss": 0}
+    return out
+
+
 def classify_and_export(test_results: list):
     print("[*] 出口 IP 情报与分类 ...")
     # 收集全部出口 IP
     all_exit_ips = []
     seen_ip = set()
-    no_exit_ip = []
     for r in test_results:
         if r["exit_ip"] and r["exit_ip"] not in seen_ip:
             seen_ip.add(r["exit_ip"])
@@ -1986,9 +3045,23 @@ def classify_and_export(test_results: list):
     except Exception as e:
         print(f"[!] MaxMind 数据库打开失败: {e}")
 
+    # ★ 预解析入口域名 (并行): 出口 IP 查不到国家时(中转隧道/内网出口)要用入口 IP 定位地区。
+    #   串行 DoH 会把这一步拖成几十秒; 预检阶段已缓存的会直接跳过。
+    #   只解析存活节点 —— 死节点的地区信息没有出库价值。
+    pending_hosts = {
+        r["server"] for r in test_results
+        if r.get("alive")
+        and r.get("server") and not is_ip_literal(r["server"])
+        and r["server"] not in _DNS_CACHE
+    }
+    if pending_hosts:
+        print(f"[*] 预解析入口域名: {len(pending_hosts)} 个 ...")
+        with ThreadPoolExecutor(max_workers=48) as ex:
+            list(ex.map(resolve_host, pending_hosts))
+
     nodes = []
     for r in test_results:
-        exit_ip = r["exit_ip"]
+        exit_ip = r.get("exit_ip")
         online_country = r.get("exit_country_online")
         country = online_country
         asn, org = r.get("exit_asn_online"), r.get("exit_asn_org_online")
@@ -1999,23 +3072,30 @@ def classify_and_export(test_results: list):
             asn = int(m.group(1)) if m else None
 
         # 在线情报缺失 → 离线 mmdb 兜底
-        if country_reader and (not country or not asn):
+        if country_reader and exit_ip and (not country or not asn):
             off_c, off_asn, off_org = offline_ip_lookup(exit_ip, country_reader, asn_reader)
             country = country or off_c
             asn = asn or off_asn
             org = org or off_org
 
+        # ★ 入口 IP 情报: 仅用于"出口 IP 查不到国家"时的地区兜底
+        srv = r.get("server") or ""
+        entry_ip, entry_country, entry_asn, entry_org = None, None, None, None
+        if srv and r.get("alive"):
+            entry_ip = srv if is_ip_literal(srv) else resolve_host(srv)
+            if entry_ip and country_reader:
+                entry_country, entry_asn, entry_org = offline_ip_lookup(
+                    entry_ip, country_reader, asn_reader)
+
         # ★ 出口 IP 查不到国家 (云内网/中转隧道) → 回退用入口服务器 IP 定位国家
         #    (中转节点出口常是内网地址, mmdb 也查不到; 入口国 ≠ 出口国但至少给用户可用地区)
-        if (not country or country in ("OTHER", "ZZ")) and r.get("server"):
-            srv_ip = r["server"] if is_ip_literal(r["server"]) else resolve_host(r["server"])
-            if srv_ip and country_reader:
-                off_c, srv_asn, srv_org = offline_ip_lookup(srv_ip, country_reader, asn_reader)
-                if off_c and off_c not in ("OTHER", "ZZ"):
-                    country = off_c
-                    asn, org = asn or srv_asn, org or srv_org
+        if (not country or country in ("OTHER", "ZZ")) and entry_country:
+            if entry_country not in ("OTHER", "ZZ"):
+                country = entry_country
+                asn = asn or entry_asn
+                org = org or entry_org
 
-        rec = ip_api_info.get(exit_ip, {})
+        rec = ip_api_info.get(exit_ip, {}) if exit_ip else {}
         net_type, confidence = classify_network_type(
             exit_ip, country, asn, org, rec or None)
 
@@ -2028,7 +3108,10 @@ def classify_and_export(test_results: list):
             "server": r["server"],
             "port": r["port"],
             "proto": r["proto"],
+            "cred": r.get("cred") or cred_fingerprint(r.get("outbound") or {}, r["proto"]),
             "outbound": r.get("outbound"),
+            "status": r.get("status", "alive"),
+            "fail_stage": r.get("fail_stage", ""),
             "country": (country or "OTHER").upper(),
             "net_type": net_type,
             "confidence": confidence,
@@ -2037,9 +3120,17 @@ def classify_and_export(test_results: list):
             "org": org,
             "isp": r.get("exit_isp_online") or (rec.get("isp") if rec else ""),
             "latency_ms": r["latency_ms"],
-            "speed_bps": r["speed_bps"],
-            "mitm_risk": r["mitm_risk"],
-            "is_stalled": r["is_stalled"],
+            "speed_bps": r.get("speed_bps", 0),
+            "speed_unmeasured": r.get("speed_unmeasured", False),
+            "mitm_risk": r.get("mitm_risk", False),
+            "is_stalled": r.get("is_stalled", False),
+            "is_warp": r.get("is_warp", False),
+            "quality_flags": r.get("quality_flags") or [],
+            "_chain_verified": r.get("_chain_verified", False),
+            "_chain_wins": r.get("_chain_wins", 0),
+            "entry_ip": entry_ip,
+            "entry_country": entry_country,
+            "entry_asn": entry_asn,
         })
 
     if country_reader:
@@ -2047,13 +3138,18 @@ def classify_and_export(test_results: list):
     if asn_reader:
         asn_reader.close()
 
-    # ── 风险过滤 ──
-    # MITM 劫持节点: 高危, 直接丢弃 (204 能通但证书被劫持 = 中间人)
-    safe_nodes = [n for n in nodes if not n["mitm_risk"]]
-    mitm_dropped = len(nodes) - len(safe_nodes)
-    # 断流节点已无 (在 liveness 阶段淘汰), 但 double-check
+    # ── 风险过滤 (仅作用于存活节点; 失败节点只用于统计失败原因, 不出库) ──
+    alive_nodes = [n for n in nodes if n["status"] == "alive"]
+    unreachable_nodes = [n for n in nodes if n["status"] != "alive"]
+
+    # MITM: 只剔除证书链验证失败的 (真实 TLS 拦截), 不再用 HTTP 状态码猜测
+    safe_nodes = [n for n in alive_nodes if not n["mitm_risk"]]
+    mitm_dropped = len(alive_nodes) - len(safe_nodes)
+    # 断流: 仅在"实测到速度且低于阈值"时剔除; 未测到速度的保留
+    stalled_dropped = sum(1 for n in safe_nodes if n["is_stalled"])
     safe_nodes = [n for n in safe_nodes if not n["is_stalled"]]
-    print(f"[*] MITM 劫持高风险节点已剔除: {mitm_dropped}")
+    print(f"[*] 风险过滤: MITM 证书劫持剔除 {mitm_dropped} | 实测断流剔除 {stalled_dropped} "
+          f"| 保留存活 {len(safe_nodes)} | 未连通(不出库) {len(unreachable_nodes)}")
 
     # ── Scamalytics 风控评分 (免费 HTML, 逐个; 只查家宽候选 + 抽样普通节点) ──
     # 家宽候选: 全查 (宁缺毋滥); 普通节点: 每 IP 查一次 (通常 <= 出口 IP 数)
@@ -2118,34 +3214,82 @@ def classify_and_export(test_results: list):
     if downgraded:
         print(f"[*] 高 fraud 分 (≥75) 家宽候选降级: {downgraded} 个")
 
-    # ── 去重 (同出口IP+端口 只留最快) ──
+    # ── 去重 (★ 身份 key: server+port+proto+凭据) ──
+    #   旧版 key = exit_ip:port: CDN/anycast/NAT 场景下, 不同协议/不同凭据的节点
+    #   共享同一出口 IP 和端口, 会被错误合并成一条, 只留延迟最低的那个 → 可用节点被误杀。
+    #   现在按身份 key 去重, "同出口刷屏"交给家宽区的单 IP 配额控制。
     best_by_key = {}
     for n in safe_nodes:
-        key = f"{n['exit_ip']}:{n['port']}" if n["exit_ip"] else f"{n['server']}:{n['port']}|{n['raw'][:64]}"
+        key = ((n["server"] or "").lower(), n["port"], n["proto"], n.get("cred") or n["raw"])
         cur = best_by_key.get(key)
         if not cur or n["latency_ms"] < cur["latency_ms"]:
             best_by_key[key] = n
     unique_nodes = list(best_by_key.values())
     dup_dropped = len(safe_nodes) - len(unique_nodes)
-    print(f"[*] 去重: {len(safe_nodes)} → {len(unique_nodes)} (剔除重复 {dup_dropped})")
+    print(f"[*] 去重 (身份 key): {len(safe_nodes)} → {len(unique_nodes)} (剔除重复 {dup_dropped})")
 
     # 去重: 出口IP+端口 唯一化, 家宽区严格防同IP刷屏
     # ★ 链式复测 (chain_retest) 双跳失败的家宽候选 → 不进家宽专区 (降级普通)
+    #   同时按 raw 和 (server,port,proto) 匹配: expand_dedup 克隆出的重复 URI
+    #   raw 不同但三元组相同, 只按 raw 匹配会漏判, 让死节点从克隆体那条路溜进家宽区。
     chain_failed_raws = set()
+    chain_failed_keys = set()
     for r in test_results:
         if r.get("_chain_failed"):
             chain_failed_raws.add(r.get("raw"))
+            chain_failed_keys.add(((r.get("server") or "").lower(),
+                                   r.get("port"), r.get("proto")))
     residential = []
     res_seen_ip = set()
+    udp_rejected = 0
+    speed_rejected = 0
+    res_candidates = 0
+    res_chain_rejected = 0
+    res_ip_dup_rejected = 0
     for n in unique_nodes:
         if n["net_type"] in ("residential", "mobile") and n["confidence"] >= 60:
-            if n.get("raw") in chain_failed_raws:
+            res_candidates += 1
+            n_key = ((n["server"] or "").lower(), n["port"], n["proto"])
+            if n.get("raw") in chain_failed_raws or n_key in chain_failed_keys:
                 n["net_type"] = "datacenter"
                 n["confidence"] = 70
+                res_chain_rejected += 1
+                continue
+            # ★ 闸门一兜底 (不依赖 chain_retest 是否跑过): UDP/QUIC 协议不进家宽区。
+            #   家宽节点入口在国内基本不可直连, 用户必须挂 socks5/http 前置,
+            #   而前置不转发 UDP → hy2/tuic 在客户端里恒为 -1。
+            if (n.get("proto") or "").lower() in UDP_ONLY_PROTOS:
+                n["net_type"] = "datacenter"
+                n["confidence"] = 70
+                udp_rejected += 1
+                continue
+            # ★ 闸门三: 吞吐 (v2 放宽, 避免多端复测后的二次误杀)
+            #   旧版要求"必须实测到速度且 ≥35KB/s": 但经 relay 复测时共用前置带宽,
+            #   测速经常拿不到字节数 → 一批真实可用的家宽被二次误杀。
+            #   现在: 只要"实测到速度且低于阈值"(is_stalled) 就剔除;
+            #   未测到速度但已在 ≥2 个前置视角存活的, 保留 (多端存活已足够证明可转发)。
+            if n.get("is_stalled") or (
+                    not n.get("speed_unmeasured")
+                    and (n.get("speed_bps") or 0) < SPEED_MIN_RESIDENTIAL_BYTES_PER_S) or (
+                    n.get("speed_unmeasured") and not n.get("_chain_verified")):
+                n["net_type"] = "datacenter"
+                n["confidence"] = 70
+                speed_rejected += 1
                 continue
             if n["exit_ip"] and n["exit_ip"] not in res_seen_ip:
                 res_seen_ip.add(n["exit_ip"])
                 residential.append(n)
+            else:
+                res_ip_dup_rejected += 1
+    # ★ 家宽漏斗埋点: 从"被判为家宽/移动"到最终入区, 每一步淘汰多少都要看得见,
+    #   否则家宽区归零时只能猜 (是分类没识别? 前置复测失败? 吞吐不达标? 同 IP 去重?)
+    print(f"[*] 家宽漏斗: 候选 {res_candidates} → 前置失败 {res_chain_rejected} "
+          f"→ UDP 排除 {udp_rejected} → 吞吐不达标 {speed_rejected} "
+          f"→ 同出口IP去重 {res_ip_dup_rejected} → 入区 {len(residential)}")
+    if udp_rejected:
+        print(f"[*] 家宽区排除 UDP 协议 (hy2/tuic 过不了前置): {udp_rejected} 个")
+    if speed_rejected:
+        print(f"[*] 家宽区排除未实测吞吐的节点 (alive 但下载 0 字节): {speed_rejected} 个")
     # fraud 分极高 (≥90) 的节点整体剔除 (任何区都不要)
     before_total = len(unique_nodes)
     unique_nodes = [n for n in unique_nodes if not (0 <= n.get("fraud_score", -1) >= 90)]
@@ -2153,25 +3297,32 @@ def classify_and_export(test_results: list):
     if len(unique_nodes) < before_total:
         print(f"[*] 极高危节点 (fraud≥90) 剔除: {before_total - len(unique_nodes)} 个")
 
-    non_residential = [n for n in unique_nodes if n not in residential]
+    res_ids = {id(n) for n in residential}
+    non_residential = [n for n in unique_nodes if id(n) not in res_ids]
     print(f"[*] 家宽/移动网络节点: {len(residential)} | 普通(机房/CDN): {len(non_residential)}")
 
     # 排序: 家宽在前, 延迟升序
-    unique_nodes.sort(key=lambda x: (0 if x in residential else 1, x["latency_ms"]))
+    unique_nodes.sort(key=lambda x: (0 if id(x) in res_ids else 1, x["latency_ms"]))
     residential.sort(key=lambda x: x["latency_ms"])
     non_residential.sort(key=lambda x: x["latency_ms"])
-    # ★ 链式复测双跳失败的家宽 → 降级普通区 (v2rayN 链式场景不可靠)
-    #    保留在总订阅/国家订阅里 (直连场景仍可用), 只是退出家宽专区
 
     # 重建 outbound (测活阶段的 outbound 已验证可用); 剥离测试专用字段 (detour 等绝不入订阅)
+    # ★ 重建失败时回退用测活阶段的 outbound: 解析器抖动不该把已验证可用的节点误杀。
     for n in unique_nodes:
         parsed = parse_node_uri(n["raw"])
+        fallback = n.get("outbound")
         if parsed:
             ob = parsed[0]
             ob.pop("detour", None)
             n["outbound"] = ob
+        elif fallback:
+            fallback.pop("detour", None)
+            n["outbound"] = fallback
         else:
             n["outbound"] = None
+    unique_nodes = [n for n in unique_nodes if n["outbound"]]
+    residential = [n for n in residential if n["outbound"]]
+    non_residential = [n for n in non_residential if n["outbound"]]
 
     return unique_nodes, residential, non_residential
 
@@ -2188,6 +3339,39 @@ def make_node_name(item, idx, force_residential=False):
     fraud = item.get("fraud_score", -1)
     risk_tag = f" R{fraud}" if 0 <= fraud < 75 and fraud >= 40 else (" ⚠R" if fraud >= 75 else "")
     return f"{flag} {cname} {idx:02d}{tag}{risk_tag} - xiaohe"
+
+
+def _save_residential_state(residential):
+    """把本轮入区的家宽节点存成快照 (output/residential-last.json)
+
+    ★ 仅作排查用 (本轮家宽归零时能看到上一轮有哪些节点), **不再回灌订阅**:
+      免费家宽节点寿命很短, 回灌会把已死节点继续放出, 用户端全是 -1。
+    只存重建订阅所需字段。
+    """
+    try:
+        data = []
+        for n in residential:
+            ob = n.get("outbound")
+            if not ob:
+                continue
+            data.append({
+                "country": n.get("country") or "OTHER",
+                "net_type": n.get("net_type") or "residential",
+                "confidence": n.get("confidence", 70),
+                "latency_ms": n.get("latency_ms", 9999),
+                "exit_ip": n.get("exit_ip"),
+                "server": n.get("server"),
+                "port": n.get("port"),
+                "proto": n.get("proto"),
+                "fraud_score": n.get("fraud_score", -1),
+                "outbound": ob,
+            })
+        tmp = RESIDENTIAL_STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, RESIDENTIAL_STATE_FILE)
+    except Exception as e:
+        print(f"[!] 家宽快照写入失败: {e}")
 
 
 def export_all(unique_nodes, residential, non_residential):
@@ -2207,54 +3391,103 @@ def export_all(unique_nodes, residential, non_residential):
             sb_nodes.append(outbound_to_singbox(ob, name))
         return links, proxies, sb_nodes
 
-    # 1) 全量
+    def write_sub(base_name, links, proxies, sb_nodes):
+        """写一套订阅 (txt / clash / singbox)
+
+        空集时写**最小合法空配置**而不是删文件 —— README 里三个链接永远指向存在的文件,
+        客户端拉下来显示 0 节点, 而不是 404 报错 (用户会以为项目挂了)。
+        """
+        txt_path = os.path.join(OUTPUT_DIR, f"{base_name}.txt")
+        clash_path = os.path.join(OUTPUT_DIR, f"{base_name}-clash.yaml")
+        sb_path = os.path.join(OUTPUT_DIR, f"{base_name}-singbox.json")
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(base64.b64encode("\n".join(links).encode()).decode())
+        if links:
+            export_clash_yaml(proxies, clash_path)
+            export_singbox_json(sb_nodes, sb_path)
+        else:
+            # 空 clash: 无 proxy, 全部走 DIRECT (clash 不接受 proxies 为空的 select 组)
+            with open(clash_path, "w", encoding="utf-8") as f:
+                yaml.dump({"port": 7890, "socks-port": 7891, "allow-lan": True,
+                           "mode": "rule", "log-level": "info",
+                           "proxies": [], "proxy-groups": [],
+                           "rules": ["MATCH,DIRECT"]},
+                          f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+            # 空 sing-box: 只留 direct 出站
+            with open(sb_path, "w", encoding="utf-8") as f:
+                json.dump({"log": {"level": "warn"},
+                           "outbounds": [{"type": "direct", "tag": "direct"}]},
+                          f, indent=2, ensure_ascii=False)
+        return len(links)
+
+    # 0) ★ UDP-only 协议 (hysteria2/tuic) 单独导出一份
+    #    main 是否包含它们由 EXPORT_UDP_TO_MAIN 决定 (v2 默认包含, 见文件头说明)。
+    #    udp-direct.* 始终刷新, 避免主订阅改成全协议后这份文件变成旧数据 (锁死客户端)。
+    udp_nodes = [n for n in unique_nodes
+                 if (n.get("proto") or "").lower() in UDP_ONLY_PROTOS]
+    if udp_nodes:
+        u_links, u_proxies, u_sb = build_group(udp_nodes)
+        if u_links:
+            write_sub("udp-direct", u_links, u_proxies, u_sb)
+            print(f"[*] UDP-only 协议单独出库: {len(u_links)} 个 → output/udp-direct.txt")
+        if not EXPORT_UDP_TO_MAIN:
+            udp_ids = {id(n) for n in udp_nodes}
+            unique_nodes = [n for n in unique_nodes if id(n) not in udp_ids]
+            non_residential = [n for n in non_residential if id(n) not in udp_ids]
+            print("[*] EXPORT_UDP_TO_MAIN=0: 主订阅只保留 TCP 协议")
+
+    # 1) 全量 (含 TCP 与 UDP-only, 具体是否剔除 UDP 由 EXPORT_UDP_TO_MAIN 决定)
     all_links, all_proxies, all_sb = build_group(unique_nodes)
     with open(os.path.join(OUTPUT_DIR, "v2ray.txt"), "w", encoding="utf-8") as f:
         f.write(base64.b64encode("\n".join(all_links).encode()).decode())
     export_clash_yaml(all_proxies, os.path.join(OUTPUT_DIR, "clash.yaml"))
     export_singbox_json(all_sb, os.path.join(OUTPUT_DIR, "singbox.json"))
 
-    # 2) 家宽总订阅
-    res_links, res_proxies, res_sb = build_group(residential, force_res=True)
-    with open(os.path.join(OUTPUT_DIR, "residential.txt"), "w", encoding="utf-8") as f:
-        f.write(base64.b64encode("\n".join(res_links).encode()).decode())
-    if res_proxies:
-        export_clash_yaml(res_proxies, os.path.join(OUTPUT_DIR, "residential-clash.yaml"))
-        export_singbox_json(res_sb, os.path.join(OUTPUT_DIR, "residential-singbox.json"))
+    # 2) ★ 家宽总订阅: 所有国家/地区的家宽+移动网络节点汇总 (不按国家拆)
+    #    ★ 本轮为空时**不再沿用上一轮快照**:
+    #      免费家宽节点寿命很短, 沿用上一轮等于把已死节点继续放出 (用户实测"全是 -1")。
+    #      宁可本轮显示 0, 也不放没通过新多端复测的旧节点。快照仍写入, 仅作排查用。
+    if residential:
+        _save_residential_state(residential)
     else:
-        for fn in ("residential-clash.yaml", "residential-singbox.json"):
-            p = os.path.join(OUTPUT_DIR, fn)
-            if os.path.exists(p):
-                os.remove(p)
+        print("[!] 家宽区本轮为空: 写空订阅 (不再沿用上一轮快照, 避免放出已死节点)")
 
-    # 3) 按国家 - 普通区
-    shutil.rmtree(COUNTRY_DIR, ignore_errors=True)
-    os.makedirs(COUNTRY_DIR, exist_ok=True)
-    by_cc = {}
-    for n in non_residential:
-        by_cc.setdefault(n["country"], []).append(n)
-    for cc, lst in by_cc.items():
-        l, p, s = build_group(lst)
-        with open(os.path.join(COUNTRY_DIR, f"{cc}.txt"), "w", encoding="utf-8") as f:
-            f.write(base64.b64encode("\n".join(l).encode()).decode())
-        export_clash_yaml(p, os.path.join(COUNTRY_DIR, f"clash-{cc}.yaml"))
-        export_singbox_json(s, os.path.join(COUNTRY_DIR, f"singbox-{cc}.json"))
+    res_links, res_proxies, res_sb = build_group(residential, force_res=True)
+    res_count = len(res_links)
+    write_sub("residential", res_links, res_proxies, res_sb)
+
+    # 3) 按国家 - 普通区 (★ 无存活节点时不动, 否则会把线上 by-country 清空)
+    if unique_nodes:
+        shutil.rmtree(COUNTRY_DIR, ignore_errors=True)
+        os.makedirs(COUNTRY_DIR, exist_ok=True)
+        by_cc = {}
+        for n in non_residential:
+            by_cc.setdefault(n["country"], []).append(n)
+        for cc, lst in by_cc.items():
+            l, p, s = build_group(lst)
+            with open(os.path.join(COUNTRY_DIR, f"{cc}.txt"), "w", encoding="utf-8") as f:
+                f.write(base64.b64encode("\n".join(l).encode()).decode())
+            export_clash_yaml(p, os.path.join(COUNTRY_DIR, f"clash-{cc}.yaml"))
+            export_singbox_json(s, os.path.join(COUNTRY_DIR, f"singbox-{cc}.json"))
 
     # 4) 按国家 - 家宽区
+    #    ★ 本轮为空时同步清空按国家目录: 不再保留旧文件 (旧文件里的节点同样可能已死,
+    #      会造成"汇总 0 / 按国家表还有数"或反向矛盾)。README 数字直接读文件, 天然一致。
     shutil.rmtree(RESIDENTIAL_COUNTRY_DIR, ignore_errors=True)
     os.makedirs(RESIDENTIAL_COUNTRY_DIR, exist_ok=True)
-    res_by_cc = {}
-    for n in residential:
-        res_by_cc.setdefault(n["country"], []).append(n)
-    for cc, lst in res_by_cc.items():
-        l, p, s = build_group(lst, force_res=True)
-        with open(os.path.join(RESIDENTIAL_COUNTRY_DIR, f"{cc}.txt"), "w", encoding="utf-8") as f:
-            f.write(base64.b64encode("\n".join(l).encode()).decode())
-        export_clash_yaml(p, os.path.join(RESIDENTIAL_COUNTRY_DIR, f"clash-{cc}.yaml"))
-        export_singbox_json(s, os.path.join(RESIDENTIAL_COUNTRY_DIR, f"singbox-{cc}.json"))
+    if residential:
+        res_by_cc = {}
+        for n in residential:
+            res_by_cc.setdefault(n["country"], []).append(n)
+        for cc, lst in res_by_cc.items():
+            l, p, s = build_group(lst, force_res=True)
+            with open(os.path.join(RESIDENTIAL_COUNTRY_DIR, f"{cc}.txt"), "w", encoding="utf-8") as f:
+                f.write(base64.b64encode("\n".join(l).encode()).decode())
+            export_clash_yaml(p, os.path.join(RESIDENTIAL_COUNTRY_DIR, f"clash-{cc}.yaml"))
+            export_singbox_json(s, os.path.join(RESIDENTIAL_COUNTRY_DIR, f"singbox-{cc}.json"))
 
-    print(f"[*] 导出完毕: 全量 {len(all_links)} | 家宽 {len(res_links)}")
-    return len(all_links), len(res_links)
+    print(f"[*] 导出完毕: 主订阅(全协议) {len(all_links)} | 家宽总订阅 {res_count}")
+    return len(all_links), res_count
 
 
 def export_clash_yaml(clash_proxies, filepath):
@@ -2298,7 +3531,8 @@ def export_singbox_json(sb_nodes, filepath):
 
 def update_readme(total_count, res_count):
     repo_name = os.environ.get("GITHUB_REPOSITORY", "hezhanleiok/freesub").strip()
-    cache_bust = ""
+    # ★ 订阅链接跟随当前分支 (test 分支上写死 @main 会让用户订阅到主分支的旧数据)
+    branch = (os.environ.get("GITHUB_REF_NAME") or "main").strip() or "main"
     # 私有化部署 Worker 脚本里的仓库参数 (默认值兜底)
     try:
         owner, repo = repo_name.split("/", 1)
@@ -2333,9 +3567,9 @@ def update_readme(total_count, res_count):
             flag = get_country_flag(cc)
             name = COUNTRY_NAMES.get(cc, cc)
             cnt = counts[cc]
-            v2 = f"[CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@main/output/{sub}/{cc}.txt) · [Raw 直链](https://raw.githubusercontent.com/{repo_name}/main/output/{sub}/{cc}.txt)"
-            cl = f"[CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@main/output/{sub}/clash-{cc}.yaml) · [Raw 直链](https://raw.githubusercontent.com/{repo_name}/main/output/{sub}/clash-{cc}.yaml)"
-            sb = f"[CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@main/output/{sub}/singbox-{cc}.json) · [Raw 直链](https://raw.githubusercontent.com/{repo_name}/main/output/{sub}/singbox-{cc}.json)"
+            v2 = f"[CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/{sub}/{cc}.txt) · [Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/{sub}/{cc}.txt)"
+            cl = f"[CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/{sub}/clash-{cc}.yaml) · [Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/{sub}/clash-{cc}.yaml)"
+            sb = f"[CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/{sub}/singbox-{cc}.json) · [Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/{sub}/singbox-{cc}.json)"
             rows.append(f"| {flag} {name} | {cnt} | {v2} | {cl} | {sb} |")
         return "\n".join(rows) if rows else "| 暂无可用节点 | 0 | - | - | - |"
 
@@ -2345,26 +3579,52 @@ def update_readme(total_count, res_count):
     readme = f"""# 🚀 免费节点自动测活订阅池 (含真实家宽/住宅IP甄选)
 
 > 👤 **定制规范命名**: 所有订阅节点均重命名为 `国旗 地区 序号 (家宽) - xiaohe`
-> ⚡ **真实可用保障**: 所有节点由 `sing-box v{SINGBOX_VERSION}` 内核建立实际代理隧道, 完成真实 HTTPS 双向传输握手 + 出口 IP 穿透验证 + Cloudflare 限速下载断流检测 + TLS 证书校验 (MITM 劫持识别), 拒绝虚假通畅、断流节点与高危劫持节点。
-> 🛡️ **全协议支持**: VLESS (Reality/Vision) · VMESS · Trojan · Shadowsocks · Hysteria2 · TUIC · AnyTLS
+> ⚡ **真实可用保障**: 所有节点由 `sing-box {SINGBOX_VERSION}` 内核建立实际代理隧道, 完成真实 HTTPS 双向传输握手 + 出口 IP 穿透验证 + Cloudflare 限速下载断流检测 + TLS 证书校验 (MITM 劫持识别), 拒绝虚假通畅、断流节点与高危劫持节点。
+> 🛡️ **全协议可选**: 主订阅包含 VLESS / VMESS / Trojan / Shadowsocks / AnyTLS **以及 Hysteria2 / TUIC**。TCP 协议可直连或走 `socks5/http` 前置; Hysteria2/TUIC 是 QUIC/UDP, 需要客户端或前置支持 UDP 转发 (v2rayN 的链式前置通常可以)。`udp-direct.*` 仍单独提供一份只含 UDP 协议的订阅, 方便按需区分。
 
 ---
 
 ## 📌 全部节点总订阅链接
 
-| 客户端 / 格式类型 | 节点总数 | 免翻 CDN 订阅直链 (国内直连) | 官方原生 Raw 直链 (开启代理) |
+> 全部为**海外实测存活**节点 (sing-box 真实握手 + 出口 IP 穿透 + 断流检测通过), 含 TCP 与 Hysteria2/TUIC。国内使用请开启前置代理; UDP 协议需要客户端/前置支持 UDP 转发。
+
+| 客户端 / 格式类型 | 节点总数 | 免翻 CDN 加速直链 | 官方原生 Raw 直链 (开启代理) |
 | :--- | :---: | :--- | :--- |
-| 🚀 **Clash (YAML 格式)** | `{total_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@main/output/clash.yaml) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/main/output/clash.yaml) |
-| ⚡ **V2RayN (Base64 格式)** | `{total_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@main/output/v2ray.txt) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/main/output/v2ray.txt) |
-| 📦 **sing-box (JSON 格式)** | `{total_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@main/output/singbox.json) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/main/output/singbox.json) |
+| 🚀 **Clash (YAML 格式)** | `{total_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/clash.yaml) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/clash.yaml) |
+| ⚡ **V2RayN (Base64 格式)** | `{total_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/v2ray.txt) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/v2ray.txt) |
+| 📦 **sing-box (JSON 格式)** | `{total_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/singbox.json) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/singbox.json) |
+
+> 🔌 **UDP-only 专用订阅 (hysteria2 / tuic, 主订阅已包含, 这里只是按协议再拆一份)**:
+> [V2RayN](https://raw.githubusercontent.com/{repo_name}/{branch}/output/udp-direct.txt) ·
+> [Clash](https://raw.githubusercontent.com/{repo_name}/{branch}/output/udp-direct-clash.yaml) ·
+> [sing-box](https://raw.githubusercontent.com/{repo_name}/{branch}/output/udp-direct-singbox.json)
 
 ---
 
 ## 🏠 按照家宽分类节点订阅 (住宅 IP 专区)
 
 > 家宽判定六重信号: ① ip-api.com `hosting` 字段 ② `mobile` 移动网络字段 ③ Cloudflare/主流 CDN Anycast 网段比对 ④ MaxMind GeoLite2 ASN 白/黑名单 (覆盖 60+ 国家主流民用运营商) ⑤ rDNS/ISP 名称特征 ⑥ Scamalytics 风控评分复核 (fraud ≥75 降级、≥90 剔除)。排除所有云主机/数据中心/CDN 任播, 保留真实民用宽带与移动网络。
+>
+> **可用性三道闸门** (家宽节点入口 IP 在国内基本不可直连, 通常必须挂前置, 因此比普通区多三道准入):
+> ① **协议闸门** — 只收 TCP 协议。`hysteria2` / `tuic` 是 QUIC/UDP, 而 socks5/http 前置不做 UDP 转发, 链式下 100% 失败, 一律不进家宽区 (它们仍在全量订阅里, 直连可用时照常使用)。
+> ② **吞吐闸门** — 实测吞吐低于 20KB/s (断流) 的不进家宽区; 经前置测不到速度但已在 ≥2 个视角存活的保留 (避免共用前置带宽导致的二次误杀)。
+> ③ **多端前置闸门** — 在 CI 里同时起 **最多 3 条不同出口 IP 的真实 socks5 前置** (亚洲节点优先), 家宽候选在每个视角各复测一次; 至少 **2 个视角通过** (或 1 个视角完整测到吞吐 + 2 个视角存活) 才放出。
+>
+> ⚠️ 因此家宽区的节点数会明显少于其他区: 宁可少而真, 不放多而假。
 
-| 家宽地区 | 节点数 | V2RayN 专属订阅 | Clash 专属订阅 | sing-box 专属订阅 |
+### 🌍 家宽总订阅 (全部国家汇总 · 推荐)
+
+> 把下面所有国家/地区的家宽 + 移动网络节点合并成一份, 不用逐个国家订阅。
+
+| 客户端 / 格式类型 | 节点总数 | 免翻 CDN 加速直链 | 官方原生 Raw 直链 (开启代理) |
+| :--- | :---: | :--- | :--- |
+| 🚀 **Clash (YAML 格式)** | `{res_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/residential-clash.yaml) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/residential-clash.yaml) |
+| ⚡ **V2RayN (Base64 格式)** | `{res_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/residential.txt) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/residential.txt) |
+| 📦 **sing-box (JSON 格式)** | `{res_count}` | [免翻 CDN 直链](https://cdn.jsdelivr.net/gh/{repo_name}@{branch}/output/residential-singbox.json) | [官方 Raw 直链](https://raw.githubusercontent.com/{repo_name}/{branch}/output/residential-singbox.json) |
+
+### 📍 按国家/地区拆分
+
+| 地区/国家 | 节点数 | V2RayN 专属订阅 | Clash 专属订阅 | sing-box 专属订阅 |
 | :--- | :---: | :---: | :---: | :---: |
 {res_table}
 
@@ -2396,7 +3656,7 @@ export default {{
     const GITHUB_TOKEN = "ghp_你的GitHub永久访问令牌";
     const OWNER = "{owner}";
     const REPO = "{repo}";
-    const BRANCH = "main";
+    const BRANCH = "{branch}";
 
     const url = new URL(request.url);
     const filePath = "output" + url.pathname;
@@ -2428,6 +3688,9 @@ export default {{
 * **总 V2RayN 订阅**: `https://你的域名.workers.dev/v2ray.txt`
 * **总 Clash 订阅**: `https://你的域名.workers.dev/clash.yaml`
 * **总 sing-box 订阅**: `https://你的域名.workers.dev/singbox.json`
+* **家宽总订阅 (V2RayN)**: `https://你的域名.workers.dev/residential.txt`
+* **家宽总订阅 (Clash)**: `https://你的域名.workers.dev/residential-clash.yaml`
+* **家宽总订阅 (sing-box)**: `https://你的域名.workers.dev/residential-singbox.json`
 * **台湾家宽 V2RayN**: `https://你的域名.workers.dev/residential-by-country/TW.txt`
 * **香港家宽 Clash**: `https://你的域名.workers.dev/residential-by-country/clash-HK.yaml`
 * **日本家宽 sing-box**: `https://你的域名.workers.dev/residential-by-country/singbox-JP.json`
@@ -2441,13 +3704,14 @@ export default {{
 ---
 
 ## 🛠️ 项目使用说明
-1. **自动更新机制**：GitHub Actions 每 6 小时全自动运行并刷新上述全部订阅与数据。
-2. **测活标准**：节点必须通过 ① 端口预检 ② sing-box 实际隧道 3 个 generate_204 探测 ③ 真实出口 IP 穿透获取 ④ Cloudflare 5MB 限时下载 (吞吐 ≥ 70KB/s) ⑤ TLS 证书校验非 MITM, 方可入库。
-3. **多客户端兼容**：Clash / v2rayN / sing-box 全格式订阅。
+1. **更新机制**：GitHub Actions **每小时自动触发** + 支持手动触发 (`workflow_dispatch`) 后刷新上述全部订阅与数据。
+2. **测活标准**：① sing-box 实际隧道 + 3 个多厂商 generate_204 探测 ② 真实出口 IP 穿透 ③ 稳态吞吐测量 (剔除慢启动, < 20KB/s 判为断流) ④ TLS 证书链校验识别 MITM (仅证书验证失败才判劫持) ⑤ 家宽节点额外做 3 端前置交叉验证。
+3. **出库标准**：只有本轮**实测连通**的节点才会出库 (失败节点仅用于统计失败原因, 不写入订阅)；主订阅含全协议 (TCP + Hysteria2/TUIC), `udp-direct.*` 额外拆出 UDP 协议一份。
+4. **多客户端兼容**：Clash / v2rayN / sing-box 全格式订阅。
 """
     with open(os.path.join(BASEDIR, "README.md"), "w", encoding="utf-8") as f:
         f.write(readme)
-    print(f"[+] README.md 更新完毕: 总节点 {total_count}, 家宽 {res_count}")
+    print(f"[+] README.md 更新完毕: 总节点 {total_count}, 家宽总订阅 {res_count}")
 
 
 # ═══════════════════════════════════════════N═══════════════════════
@@ -2461,7 +3725,7 @@ def main():
     setup_environment()
 
     # 1. 抓取
-    raw_nodes = fetch_raw_nodes()
+    raw_nodes, fetch_failed = fetch_raw_nodes()
 
     # 2. 解析
     candidates = []
@@ -2479,30 +3743,7 @@ def main():
 
     # 2.5 ★ 测前强去重 (凭据指纹去重: 同 凭据+目标+协议 只测一次, 结果回填全部重复节点)
     #     key = (server, port, proto, 凭据指纹): 凭据不同 → 服务端校验结果可能不同, 不可合并
-    #     凭据指纹: uuid/password 各协议的核心身份字段 (vless uuid / vmess id+alterId /
-    #               trojan password / ss 2022密钥 / hy2 auth / tuic uuid+passwd / anytls password)
-    #     完全相同 = 同一节点被多源重复收录 (免费池常态, 30+ 份不同名字) → 只测一次
-    def cred_fingerprint(outbound: dict, proto: str) -> str:
-        try:
-            if proto == "vless":
-                return f"{outbound.get('uuid','')}"
-            if proto == "vmess":
-                return f"{outbound.get('uuid','') or outbound.get('user_id','')}"
-            if proto == "trojan":
-                return f"{outbound.get('password','')}"
-            if proto == "shadowsocks":
-                return f"{outbound.get('method','')}|{outbound.get('password','')}"
-            if proto == "hysteria2":
-                return f"{outbound.get('password','') or ''}|{outbound.get('server_ports','')}"
-            if proto == "tuic":
-                return f"{outbound.get('uuid','')}|{outbound.get('password','')}"
-            if proto == "anytls":
-                return f"{outbound.get('password','')}"
-            return json.dumps({k: v for k, v in outbound.items()
-                              if k in ("uuid", "password", "user_id", "method")}, sort_keys=True)
-        except Exception:
-            return ""  # 指纹失败 → 不合并 (宁慢不错)
-
+    #     凭据指纹由模块级 cred_fingerprint() 统一实现 (state.json 的记忆 key 也复用它)
     seen_keys, deduped, dup_count = {}, [], 0
     for item in candidates:
         uri, outbound, server, port, proto = item
@@ -2524,52 +3765,87 @@ def main():
     print(f"[*] 解析成功(去重后): {len(candidates)} | 失败 {parse_fail} | 协议分布 {proto_stat}")
 
     if not candidates:
-        print("[!] 无可测节点 (订阅源全部失效?) — 保留上次 output, 不覆盖订阅文件")
+        if fetch_failed:
+            print(f"[!] 无可测节点 — 抓取阶段已有 {len(fetch_failed)} 个源站失败; "
+                  f"回源补抓需要至少 1 个存活节点作出口, 本轮无出口可用, 无法补救")
+        else:
+            print("[!] 无可测节点 (订阅源全部失效?) — 保留上次 output, 不覆盖订阅文件")
         return
 
     # 3. 端口预检
-    candidates = prefilter_candidates(candidates)
+    #    ★ deferred = 预检未过但可能"入口像家宽"的候选: 不直接丢, 先记成失败结果,
+    #      后面家宽链式复测会从入口 ASN 判定, 给它们第二视角机会 (减少家宽误杀)
+    candidates, prefilter_deferred = prefilter_candidates(candidates, return_deferred=True)
 
     # 4. 真实测活 (只测去重后的代表节点)
     test_results = run_liveness_test(candidates)
+    if prefilter_deferred:
+        for item in prefilter_deferred:
+            test_results.append(_make_result(item, "unreachable", "prefilter", "TCP 预检未通过"))
 
     # 4.5 ★ 重复节点结果回填: 同 凭据+目标 的重复 URI 继承测活结果 (凭据相同 → 服务端表现一致)
+    #     key 用 (server, port, proto, 凭据指纹) 四元组 —— 修复旧版只用三元组导致
+    #     "同一 server:port 上挂不同凭据"时结果串号 (死节点变假活 / 出口 IP 与 ASN 串号)
     if DEDUP_MAP:
-        result_by_key = {}
-        for r in test_results:
-            key = ((r["server"] or "").lower(), r["port"], r["proto"])
-            result_by_key[key] = r
-        expanded = list(test_results)
-        backfilled = 0
-        # 反向索引: server:port:proto → 原始 fingerprint (从 DEDUP_MAP 的 key 直接继承)
-        for key, uris in DEDUP_MAP.items():
-            if len(uris) <= 1:
-                continue
-            # 用 key 的前三段 (server, port, proto) 找测活结果
-            lookup = (key[0], key[1], key[2])
-            r = result_by_key.get(lookup)
-            if not r or not r.get("alive"):
-                continue
-            for extra_uri in uris[1:]:
-                clone = dict(r)
-                clone["raw"] = extra_uri
-                expanded.append(clone)
-                backfilled += 1
+        test_results, backfilled = expand_dedup(test_results, DEDUP_MAP)
         if backfilled:
             print(f"[+] 重复节点回填: +{backfilled} (继承代表测活结果)")
-        test_results = expanded
+
+    # 4.55 ★ 回源补抓: 被源站 WAF 拦掉的订阅, 用已测活节点作出口重试
+    #      (Actions 出口是 Azure, 免费节点站普遍按 ASN 拦数据中心 IP;
+    #       换备用域名无用 = 同一 CF zone 同一套规则; 套 CF Worker 也无用 = 回源同样走数据中心)
+    if fetch_failed:
+        alive_items = [r for r in test_results if r.get("alive")]
+        recovered = refetch_via_alive_nodes(fetch_failed, alive_items)
+        if recovered:
+            refetch_dedup, new_cands, skipped = {}, [], 0
+            for uri in set().union(*recovered.values()):
+                parsed = parse_node_uri(uri)
+                if not parsed:
+                    continue
+                outbound, server, port, proto = parsed
+                if BLACKLIST_NAME_HINTS.search(
+                        urllib.parse.unquote(uri.split("#", 1)[-1] if "#" in uri else "")):
+                    continue
+                key = ((server or "").lower(), port, proto, cred_fingerprint(outbound, proto))
+                if key in DEDUP_MAP:
+                    skipped += 1      # 主批次已覆盖同一凭据, 无需重复测
+                    continue
+                if key in refetch_dedup:
+                    refetch_dedup[key].append(uri)
+                    continue
+                refetch_dedup[key] = [uri]
+                new_cands.append((uri, outbound, server, port, proto))
+            if skipped:
+                print(f"[*] 回源补抓的节点中 {skipped} 个与主批次重复, 已跳过")
+            if new_cands:
+                print(f"[*] 回源补抓新增 {len(new_cands)} 个待测节点 (去重后), 追加一轮测活 ...")
+                extra_results = run_liveness_test(prefilter_candidates(new_cands))
+                extra_results, extra_backfill = expand_dedup(extra_results, refetch_dedup)
+                if extra_backfill:
+                    print(f"[+] 回源批次重复回填: +{extra_backfill}")
+                test_results.extend(extra_results)
+            else:
+                print("[*] 回源补抓的节点全部与已有节点重复, 无需追加测活")
+
+    # 4.6 跨运行记忆: 只读来累加历史轨迹, 不参与出库判定 (救援池已下线)
+    prev_state = load_state()
+    print(f"[*] 跨运行记忆: {len(prev_state)} 条" if prev_state else "[*] 无跨运行记忆 (首次运行)")
 
     # 5. ★ 家宽链式复测: 用最快存活节点做前置双跳复测家宽候选
     #    (模拟用户 v2rayN 链式场景, 双跳失败的家宽降级普通区 — 提高链式可用率)
     test_results = chain_retest(test_results)
 
-    # 6. 分类 + 导出 (无真活节点时保留上次 output, 不写空订阅覆盖线上数据)
+    # 5.5 保存跨运行记忆
+    save_state(build_state(test_results, prev_state))
+
+    # 6. 分类 + 导出
     if not test_results:
-        print("[!] 全部节点测活失败 — 保留上次 output, 不覆盖订阅文件")
+        print("[!] 无任何测活结果 — 保留上次 output, 不覆盖订阅文件")
         return
     unique_nodes, residential, non_residential = classify_and_export(test_results)
     if not unique_nodes:
-        print("[!] 分类后无存活节点 — 保留上次 output")
+        print("[!] 无存活节点 — 保留上次 output, 不覆盖订阅文件")
         return
     total, res = export_all(unique_nodes, residential, non_residential)
     update_readme(total, res)
@@ -2578,20 +3854,40 @@ def main():
     # 统计报告
     elapsed = time.time() - t_start
     print("\n===== 运行报告 =====")
-    print(f"总耗时: {elapsed:.0f}s | 抓取 {len(raw_nodes)} → 解析成功 {len(candidates)} → 真活 {len(test_results)} → 去重后 {len(unique_nodes)} → 家宽 {len(residential)}")
+    print(f"总耗时: {elapsed:.0f}s | 抓取 {len(raw_nodes)} → 解析成功 {len(candidates)} "
+          f"→ 存活 {sum(1 for r in test_results if r.get('alive'))}/{len(test_results)} "
+          f"→ 去重后 {len(unique_nodes)} → 家宽 {len(residential)}")
+    udp_count = sum(1 for n in unique_nodes
+                    if (n.get("proto") or "").lower() in UDP_ONLY_PROTOS)
+    tcp_count = len(unique_nodes) - udp_count
+    exported_nodes = unique_nodes if EXPORT_UDP_TO_MAIN else [
+        n for n in unique_nodes if (n.get("proto") or "").lower() not in UDP_ONLY_PROTOS]
+    print(f"导出构成: 主订阅 {total} (TCP {tcp_count} + UDP-only {udp_count}, "
+          f"{'已包含在主订阅' if EXPORT_UDP_TO_MAIN else '已移出主订阅'}) | "
+          f"udp-direct(单独) {udp_count} | 家宽 {res}")
+    # 下面的分布只统计"真正写进主订阅"的节点, 避免日志里出现
+    # "国家 Top10 有 HK 21" 但订阅里一个香港都没有的误导
     by_type = {}
-    for n in unique_nodes:
+    for n in exported_nodes:
         by_type[n["net_type"]] = by_type.get(n["net_type"], 0) + 1
-    print(f"节点类型分布: {by_type}")
+    print(f"节点类型分布(主订阅): {by_type}")
     by_proto = {}
-    for n in unique_nodes:
+    for n in exported_nodes:
         by_proto[n["proto"]] = by_proto.get(n["proto"], 0) + 1
-    print(f"协议分布(出库): {by_proto}")
+    print(f"协议分布(主订阅): {by_proto}")
     by_country = {}
-    for n in unique_nodes:
+    for n in exported_nodes:
         by_country[n["country"]] = by_country.get(n["country"], 0) + 1
     top_c = sorted(by_country.items(), key=lambda x: -x[1])[:10]
-    print(f"国家 Top10: {top_c}")
+    print(f"国家 Top10(主订阅): {top_c}")
+    if fetch_failed:
+        hosts = []
+        for u, k, _ in fetch_failed:
+            try:
+                hosts.append(f"{urllib.parse.urlsplit(u).netloc or u}({k})")
+            except Exception:
+                hosts.append(f"{u}({k})")
+        print(f"抓取失败源站: {len(fetch_failed)} 个 — " + " | ".join(hosts))
 
 
 if __name__ == "__main__":
