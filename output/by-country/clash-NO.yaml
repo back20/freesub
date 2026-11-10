@@ -11,34 +11,17 @@ proxies:
   type: ss
   cipher: chacha20-ietf-poly1305
   password: ARgvGZywA+gacgGV26Bvmu05+wZmRW/j+AdU+Z8Bt44=
-- name: 🇳🇴 挪威 (Norway) 02 - xiaohe
-  server: 185.14.97.242
-  port: 8443
-  udp: true
-  type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /
-    headers:
-      Host: fs.qicai99.com
 proxy-groups:
 - name: PROXIES
   type: select
   proxies:
   - AUTO
   - 🇳🇴 挪威 (Norway) 01 - xiaohe
-  - 🇳🇴 挪威 (Norway) 02 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
   interval: 300
   proxies:
   - 🇳🇴 挪威 (Norway) 01 - xiaohe
-  - 🇳🇴 挪威 (Norway) 02 - xiaohe
 rules:
 - MATCH,PROXIES

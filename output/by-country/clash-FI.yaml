@@ -13,6 +13,14 @@ proxies:
   sni: fi1.obxodvpn.us
   skip-cert-verify: false
 - name: 🇫🇮 芬兰 (Finland) 02 - xiaohe
+  server: fi1.obxodvpn.us
+  port: 443
+  udp: true
+  type: hysteria2
+  password: 146d567c-6335-4e63-a8aa-7ec068642440
+  sni: fi1.obxodvpn.us
+  skip-cert-verify: false
+- name: 🇫🇮 芬兰 (Finland) 03 - xiaohe
   server: 45.144.234.157
   port: 14430
   udp: true
@@ -23,14 +31,6 @@ proxies:
     path: /vless
     headers:
       Host: 45.144.234.157
-- name: 🇫🇮 芬兰 (Finland) 03 - xiaohe
-  server: fi1.obxodvpn.us
-  port: 443
-  udp: true
-  type: hysteria2
-  password: 146d567c-6335-4e63-a8aa-7ec068642440
-  sni: fi1.obxodvpn.us
-  skip-cert-verify: false
 - name: 🇫🇮 芬兰 (Finland) 04 - xiaohe
   server: 72.35.246.39
   port: 2053
@@ -43,7 +43,7 @@ proxies:
     public-key: TSOm7XIZvGzYoCbh_lFFA9PTQJqI-JU5kKIAffGmUWg
     short-id: 5e39e518bfac6392
   servername: vk.ru
-  client-fingerprint: chrome
+  client-fingerprint: firefox
 - name: 🇫🇮 芬兰 (Finland) 05 - xiaohe
   server: 146.103.118.189
   port: 443
@@ -60,6 +60,32 @@ proxies:
     headers:
       Host: nl2.574ck.xyz
 - name: 🇫🇮 芬兰 (Finland) 06 - xiaohe
+  server: 95.216.27.15
+  port: 2053
+  udp: true
+  type: vless
+  uuid: b79d736d-0f10-4169-b626-362059d18204
+  tls: true
+  reality-opts:
+    public-key: aiHdxKOzcFZDILKj3MIPrMsyT0XxMy_O6xoxnz6MIWs
+    short-id: 10351b07c712d2a2
+  servername: www.cloudflare.com
+  client-fingerprint: ''
+- name: 🇫🇮 芬兰 (Finland) 07 - xiaohe
+  server: 109.120.134.181
+  port: 443
+  udp: true
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /fp=chrome
+    headers:
+      Host: fs.qicai99.com
+- name: 🇫🇮 芬兰 (Finland) 08 - xiaohe
   server: nele.neobo-tooth.ru
   port: 2053
   udp: true
@@ -72,36 +98,6 @@ proxies:
     short-id: 5e39e518bfac6392
   servername: vk.ru
   client-fingerprint: chrome
-- name: 🇫🇮 芬兰 (Finland) 07 - xiaohe
-  server: 109.120.134.181
-  port: 443
-  udp: true
-  type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /
-    headers:
-      Host: fs.qicai99.com
-- name: 🇫🇮 芬兰 (Finland) 08 - xiaohe
-  server: 138.124.49.108
-  port: 8443
-  udp: true
-  type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /
-    headers:
-      Host: fs.qicai99.com
 - name: 🇫🇮 芬兰 (Finland) 09 - xiaohe
   server: 138.124.124.157
   port: 443
@@ -111,20 +107,25 @@ proxies:
   tls: true
   servername: fs.qicai99.com
   skip-cert-verify: false
-  client-fingerprint: chrome
   network: ws
   ws-opts:
-    path: /
+    path: /fp=chrome
     headers:
       Host: fs.qicai99.com
 - name: 🇫🇮 芬兰 (Finland) 10 - xiaohe
-  server: 65.108.240.210
-  port: 39018
+  server: 138.124.49.108
+  port: 8443
   udp: true
-  type: vmess
-  uuid: 8ca123a8-720b-47c5-bd0c-637431418b09
-  alterId: 0
-  cipher: auto
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /fp=chrome
+    headers:
+      Host: fs.qicai99.com
 proxy-groups:
 - name: PROXIES
   type: select

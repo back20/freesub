@@ -4,25 +4,18 @@
   },
   "outbounds": [
     {
-      "type": "vless",
-      "tag": "🇭🇺 匈牙利 (Hungary) 01 - xiaohe",
-      "server": "38.180.225.247",
-      "server_port": 2053,
-      "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
+      "type": "trojan",
+      "tag": "🇺🇸 美国 (United States) 01 (移动家宽) - xiaohe",
+      "server": "130.94.19.95",
+      "server_port": 57277,
+      "password": "5t6i121em5lkmsmk",
       "tls": {
         "enabled": true,
-        "server_name": "fs.qicai99.com",
+        "server_name": "us001.zestapp778.com",
         "insecure": false,
         "utls": {
           "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "fs.qicai99.com"
+          "fingerprint": "firefox"
         }
       }
     },
@@ -31,14 +24,14 @@
       "tag": "select",
       "outbounds": [
         "auto",
-        "🇭🇺 匈牙利 (Hungary) 01 - xiaohe"
+        "🇺🇸 美国 (United States) 01 (移动家宽) - xiaohe"
       ]
     },
     {
       "type": "urltest",
       "tag": "auto",
       "outbounds": [
-        "🇭🇺 匈牙利 (Hungary) 01 - xiaohe"
+        "🇺🇸 美国 (United States) 01 (移动家宽) - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },

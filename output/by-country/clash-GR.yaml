@@ -5,33 +5,6 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇬🇷 希腊 (Greece) 01 - xiaohe
-  server: 85.90.197.220
-  port: 443
-  udp: true
-  type: vless
-  uuid: 8f704ed6-9a1a-4d04-94dd-1bff501716de
-  flow: xtls-rprx-vision
-  tls: true
-  reality-opts:
-    public-key: biNcdU5mywtNw-KyPpLHindBxdEyAolT1WJ26N0b7y4
-    short-id: 94acb54627612d43
-  servername: www.cloudflare.com
-  client-fingerprint: chrome
-- name: 🇬🇷 希腊 (Greece) 02 - xiaohe
-  server: 85.90.197.158
-  port: 443
-  udp: true
-  type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /fp=chrome
-    headers:
-      Host: fs.qicai99.com
-- name: 🇬🇷 希腊 (Greece) 03 - xiaohe
   server: 85.90.197.159
   port: 443
   udp: true
@@ -46,6 +19,34 @@ proxies:
     path: /
     headers:
       Host: fs.qicai99.com
+- name: 🇬🇷 希腊 (Greece) 02 - xiaohe
+  server: 85.90.197.158
+  port: 443
+  udp: true
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  client-fingerprint: chrome
+  network: ws
+  ws-opts:
+    path: /
+    headers:
+      Host: fs.qicai99.com
+- name: 🇬🇷 希腊 (Greece) 03 - xiaohe
+  server: 85.90.197.220
+  port: 443
+  udp: true
+  type: vless
+  uuid: 8f704ed6-9a1a-4d04-94dd-1bff501716de
+  flow: xtls-rprx-vision
+  tls: true
+  reality-opts:
+    public-key: biNcdU5mywtNw-KyPpLHindBxdEyAolT1WJ26N0b7y4
+    short-id: 94acb54627612d43
+  servername: www.cloudflare.com
+  client-fingerprint: chrome
 proxy-groups:
 - name: PROXIES
   type: select
