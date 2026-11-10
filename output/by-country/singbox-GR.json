@@ -12,15 +12,11 @@
       "tls": {
         "enabled": true,
         "server_name": "fs.qicai99.com",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
+        "insecure": false
       },
       "transport": {
         "type": "ws",
-        "path": "/",
+        "path": "/fp=chrome",
         "headers": {
           "Host": "fs.qicai99.com"
         }
@@ -35,38 +31,13 @@
       "tls": {
         "enabled": true,
         "server_name": "fs.qicai99.com",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
+        "insecure": false
       },
       "transport": {
         "type": "ws",
-        "path": "/",
+        "path": "/fp=chrome",
         "headers": {
           "Host": "fs.qicai99.com"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "🇬🇷 希腊 (Greece) 03 - xiaohe",
-      "server": "85.90.197.220",
-      "server_port": 443,
-      "uuid": "8f704ed6-9a1a-4d04-94dd-1bff501716de",
-      "flow": "xtls-rprx-vision",
-      "tls": {
-        "enabled": true,
-        "server_name": "www.cloudflare.com",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "biNcdU5mywtNw-KyPpLHindBxdEyAolT1WJ26N0b7y4",
-          "short_id": "94acb54627612d43"
         }
       }
     },
@@ -76,8 +47,7 @@
       "outbounds": [
         "auto",
         "🇬🇷 希腊 (Greece) 01 - xiaohe",
-        "🇬🇷 希腊 (Greece) 02 - xiaohe",
-        "🇬🇷 希腊 (Greece) 03 - xiaohe"
+        "🇬🇷 希腊 (Greece) 02 - xiaohe"
       ]
     },
     {
@@ -85,8 +55,7 @@
       "tag": "auto",
       "outbounds": [
         "🇬🇷 希腊 (Greece) 01 - xiaohe",
-        "🇬🇷 希腊 (Greece) 02 - xiaohe",
-        "🇬🇷 希腊 (Greece) 03 - xiaohe"
+        "🇬🇷 希腊 (Greece) 02 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },

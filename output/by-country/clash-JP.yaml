@@ -5,20 +5,12 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇯🇵 日本 (Japan) 01 - xiaohe
-  server: 84.247.155.196
-  port: 443
+  server: 152.69.195.67
+  port: 47878
   udp: true
-  type: ss
-  cipher: aes-256-gcm
-  password: 3eOFeNssde7PYYMv
+  type: vless
+  uuid: eb8613e3-8393-4cff-a3ad-6501fd4adc63
 - name: 🇯🇵 日本 (Japan) 02 - xiaohe
-  server: 84.247.155.196
-  port: 80
-  udp: true
-  type: ss
-  cipher: aes-256-gcm
-  password: 3eOFeNssde7PYYMv
-- name: 🇯🇵 日本 (Japan) 03 - xiaohe
   server: 8.211.175.236
   port: 8443
   udp: true
@@ -26,7 +18,7 @@ proxies:
   password: u63SxILNwtrQZ7Y1ZrFaZfsA
   sni: 8.211.175.236
   skip-cert-verify: true
-- name: 🇯🇵 日本 (Japan) 04 - xiaohe
+- name: 🇯🇵 日本 (Japan) 03 - xiaohe
   server: 85.121.123.197
   port: 12765
   udp: true
@@ -34,6 +26,14 @@ proxies:
   password: STYyftThFn
   sni: freedom.chenlan.top
   skip-cert-verify: false
+- name: 🇯🇵 日本 (Japan) 04 - xiaohe
+  server: 193.123.160.109
+  port: 8443
+  udp: true
+  type: trojan
+  password: F3NzMNuYnG7akU2mSlBY
+  sni: www.microsoft.com
+  skip-cert-verify: true
 - name: 🇯🇵 日本 (Japan) 05 - xiaohe
   server: s2534.wagahaha.xyz
   port: 443
@@ -46,18 +46,13 @@ proxies:
   skip-cert-verify: false
   client-fingerprint: firefox
 - name: 🇯🇵 日本 (Japan) 06 - xiaohe
-  server: 168.138.43.75
-  port: 80
+  server: 8.209.247.109
+  port: 443
   udp: true
-  type: vmess
-  uuid: 11c3627f-31e8-4695-dfbd-34076e2f1f5d
-  alterId: 0
-  cipher: auto
-  network: ws
-  ws-opts:
-    path: /cctv13.m3u8
-    headers:
-      Host: 168.138.43.75
+  type: hysteria2
+  password: usqmqUKJFIlCmvkCNSY64L3k
+  sni: bing.com
+  skip-cert-verify: true
 - name: 🇯🇵 日本 (Japan) 07 - xiaohe
   server: s2533.gogocs.xyz
   port: 443
@@ -70,6 +65,41 @@ proxies:
   skip-cert-verify: false
   client-fingerprint: firefox
 - name: 🇯🇵 日本 (Japan) 08 - xiaohe
+  server: s2547.fuhuovps.xyz
+  port: 443
+  udp: true
+  type: vless
+  uuid: 30e52776-55ac-3cb4-8d36-e2910f07e2c3
+  flow: xtls-rprx-vision
+  tls: true
+  servername: u695098uf08a6307s2544.xxti.top
+  skip-cert-verify: false
+  client-fingerprint: firefox
+- name: 🇯🇵 日本 (Japan) 09 - xiaohe
+  server: 168.138.43.75
+  port: 80
+  udp: true
+  type: vmess
+  uuid: 11c3627f-31e8-4695-dfbd-34076e2f1f5d
+  alterId: 0
+  cipher: auto
+  network: ws
+  ws-opts:
+    path: /cctv13.m3u8
+    headers:
+      Host: jp01.a0a.xyz
+- name: 🇯🇵 日本 (Japan) 10 - xiaohe
+  server: s2546.wagahaha.xyz
+  port: 443
+  udp: true
+  type: vless
+  uuid: 30e52776-55ac-3cb4-8d36-e2910f07e2c3
+  flow: xtls-rprx-vision
+  tls: true
+  servername: u695098uf08a6307s2544.xxti.top
+  skip-cert-verify: false
+  client-fingerprint: firefox
+- name: 🇯🇵 日本 (Japan) 11 - xiaohe
   server: freedom.chenlan.top
   port: 12765
   udp: true
@@ -77,7 +107,18 @@ proxies:
   password: STYyftThFn
   sni: freedom.chenlan.top
   skip-cert-verify: false
-- name: 🇯🇵 日本 (Japan) 09 - xiaohe
+- name: 🇯🇵 日本 (Japan) 12 - xiaohe
+  server: 64.176.35.228
+  port: 443
+  udp: true
+  type: vless
+  uuid: 30e52776-55ac-3cb4-8d36-e2910f07e2c3
+  flow: xtls-rprx-vision
+  tls: true
+  servername: u695098uf08a6307s2544.xxti.top
+  skip-cert-verify: false
+  client-fingerprint: firefox
+- name: 🇯🇵 日本 (Japan) 13 - xiaohe
   server: 3.114.220.22
   port: 18007
   udp: true
@@ -90,7 +131,22 @@ proxies:
     short-id: 48050fab
   servername: www.apple.com
   client-fingerprint: edge
-- name: 🇯🇵 日本 (Japan) 10 - xiaohe
+- name: 🇯🇵 日本 (Japan) 14 - xiaohe
+  server: 154.31.114.162
+  port: 8443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  client-fingerprint: firefox
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 15 - xiaohe
   server: 3.114.220.22
   port: 19645
   udp: true
@@ -102,16 +158,16 @@ proxies:
     public-key: k2hPp0tTW0Da-HK94wYpSCLbuK44LfGqC2MSJIM1Ti0
     short-id: 48050fab
   servername: www.apple.com
-  client-fingerprint: random
-- name: 🇯🇵 日本 (Japan) 11 - xiaohe
+  client-fingerprint: safari
+- name: 🇯🇵 日本 (Japan) 16 - xiaohe
   server: 138.3.208.26
   port: 50160
   udp: true
   type: hysteria2
   password: 184cdec28da5a09450803c8debcd2cc9
-  sni: 138.3.208.26
+  sni: 'off'
   skip-cert-verify: true
-- name: 🇯🇵 日本 (Japan) 12 - xiaohe
+- name: 🇯🇵 日本 (Japan) 17 - xiaohe
   server: 3.114.220.22
   port: 10583
   udp: true
@@ -123,8 +179,8 @@ proxies:
     public-key: k2hPp0tTW0Da-HK94wYpSCLbuK44LfGqC2MSJIM1Ti0
     short-id: 48050fab
   servername: www.apple.com
-  client-fingerprint: chrome
-- name: 🇯🇵 日本 (Japan) 13 - xiaohe
+  client-fingerprint: random
+- name: 🇯🇵 日本 (Japan) 18 - xiaohe
   server: 46.250.248.210
   port: 443
   udp: true
@@ -139,94 +195,21 @@ proxies:
     path: /
     headers:
       Host: fs.qicai99.com
-- name: 🇯🇵 日本 (Japan) 14 - xiaohe
-  server: 104.19.164.155
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 15 - xiaohe
-  server: 104.17.210.74
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 16 - xiaohe
-  server: 104.21.70.21
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: firefox
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 17 - xiaohe
-  server: 104.24.31.89
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 18 - xiaohe
-  server: 104.16.111.102
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: ios
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 19 - xiaohe
-  server: 104.16.10.104
+  server: 84.247.155.196
+  port: 80
+  udp: true
+  type: ss
+  cipher: aes-256-gcm
+  password: 3eOFeNssde7PYYMv
+- name: 🇯🇵 日本 (Japan) 20 - xiaohe
+  server: 84.247.155.196
   port: 443
   udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 20 - xiaohe
+  type: ss
+  cipher: aes-256-gcm
+  password: 3eOFeNssde7PYYMv
+- name: 🇯🇵 日本 (Japan) 21 - xiaohe
   server: 162.159.254.3
   port: 443
   udp: true
@@ -235,27 +218,28 @@ proxies:
   tls: true
   servername: jp3.yohototo.top
   skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 21 - xiaohe
-  server: 104.27.46.35
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
+  client-fingerprint: chrome
   network: ws
   ws-opts:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 22 - xiaohe
-  server: 104.16.10.56
+  server: 46.250.254.187
+  port: 443
+  udp: true
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /
+    headers:
+      Host: fs.qicai99.com
+- name: 🇯🇵 日本 (Japan) 23 - xiaohe
+  server: 172.67.156.147
   port: 443
   udp: true
   type: vless
@@ -268,14 +252,8 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 23 - xiaohe
-  server: 152.69.195.67
-  port: 47878
-  udp: true
-  type: vless
-  uuid: eb8613e3-8393-4cff-a3ad-6501fd4adc63
 - name: 🇯🇵 日本 (Japan) 24 - xiaohe
-  server: 43.170.8.95
+  server: 104.16.10.135
   port: 443
   udp: true
   type: vless
@@ -283,14 +261,13 @@ proxies:
   tls: true
   servername: jp3.yohototo.top
   skip-cert-verify: false
-  client-fingerprint: chrome
   network: ws
   ws-opts:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 25 - xiaohe
-  server: 104.16.10.234
+  server: 104.21.6.186
   port: 443
   udp: true
   type: vless
@@ -298,42 +275,13 @@ proxies:
   tls: true
   servername: jp3.yohototo.top
   skip-cert-verify: false
+  client-fingerprint: chrome
   network: ws
   ws-opts:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 26 - xiaohe
-  server: 104.17.50.227
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 27 - xiaohe
-  server: 104.18.42.98
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 28 - xiaohe
   server: 104.16.10.72
   port: 443
   udp: true
@@ -348,8 +296,37 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 27 - xiaohe
+  server: 104.17.50.227
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 28 - xiaohe
+  server: 104.24.0.1
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  client-fingerprint: chrome
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 29 - xiaohe
-  server: 104.21.70.228
+  server: 104.16.10.2
   port: 443
   udp: true
   type: vless
@@ -364,18 +341,22 @@ proxies:
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 30 - xiaohe
-  server: s2546.wagahaha.xyz
+  server: 104.21.33.59
   port: 443
   udp: true
   type: vless
-  uuid: 30e52776-55ac-3cb4-8d36-e2910f07e2c3
-  flow: xtls-rprx-vision
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
   tls: true
-  servername: u695098uf08a6307s2544.xxti.top
+  servername: jp3.yohototo.top
   skip-cert-verify: false
-  client-fingerprint: firefox
+  client-fingerprint: chrome
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 31 - xiaohe
-  server: 104.17.50.53
+  server: 104.16.111.195
   port: 443
   udp: true
   type: vless
@@ -397,22 +378,26 @@ proxies:
   tls: true
   servername: jp3.yohototo.top
   skip-cert-verify: false
+  client-fingerprint: firefox
   network: ws
   ws-opts:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 33 - xiaohe
-  server: s2547.fuhuovps.xyz
+  server: 104.27.46.35
   port: 443
   udp: true
   type: vless
-  uuid: 30e52776-55ac-3cb4-8d36-e2910f07e2c3
-  flow: xtls-rprx-vision
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
   tls: true
-  servername: u695098uf08a6307s2544.xxti.top
+  servername: jp3.yohototo.top
   skip-cert-verify: false
-  client-fingerprint: firefox
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 34 - xiaohe
   server: 104.21.34.106
   port: 443
@@ -428,7 +413,7 @@ proxies:
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 35 - xiaohe
-  server: 104.16.111.195
+  server: 43.170.8.95
   port: 443
   udp: true
   type: vless
@@ -436,146 +421,13 @@ proxies:
   tls: true
   servername: jp3.yohototo.top
   skip-cert-verify: false
+  client-fingerprint: chrome
   network: ws
   ws-opts:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 36 - xiaohe
-  server: 104.16.10.135
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 37 - xiaohe
-  server: 104.19.12.94
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 38 - xiaohe
-  server: 188.114.97.6
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 39 - xiaohe
-  server: 104.21.6.186
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 40 - xiaohe
-  server: 64.176.35.228
-  port: 443
-  udp: true
-  type: vless
-  uuid: 30e52776-55ac-3cb4-8d36-e2910f07e2c3
-  flow: xtls-rprx-vision
-  tls: true
-  servername: u695098uf08a6307s2544.xxti.top
-  skip-cert-verify: false
-  client-fingerprint: firefox
-- name: 🇯🇵 日本 (Japan) 41 - xiaohe
-  server: 104.24.0.1
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 42 - xiaohe
-  server: 141.11.139.102
-  port: 32515
-  udp: true
-  type: vmess
-  uuid: 081dbf5a-d8b6-40c8-96f8-3c4ca9f50442
-  alterId: 0
-  cipher: auto
-- name: 🇯🇵 日本 (Japan) 43 - xiaohe
-  server: 155.103.116.110
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 44 - xiaohe
-  server: 104.19.48.107
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 45 - xiaohe
-  server: 172.67.156.147
-  port: 443
-  udp: true
-  type: vless
-  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
-  tls: true
-  servername: jp3.yohototo.top
-  skip-cert-verify: false
-  network: ws
-  ws-opts:
-    path: /tyxyws
-    headers:
-      Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 46 - xiaohe
   server: 104.16.10.185
   port: 443
   udp: true
@@ -590,8 +442,65 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 47 - xiaohe
-  server: 152.69.200.216
+- name: 🇯🇵 日本 (Japan) 37 - xiaohe
+  server: 104.16.0.1
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 38 - xiaohe
+  server: 155.103.116.110
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 39 - xiaohe
+  server: 172.67.217.240
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  client-fingerprint: firefox
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 40 - xiaohe
+  server: 104.17.50.53
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 41 - xiaohe
+  server: 104.19.12.94
   port: 443
   udp: true
   type: vless
@@ -605,14 +514,49 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 48 - xiaohe
-  server: 154.36.158.197
-  port: 8388
+- name: 🇯🇵 日本 (Japan) 42 - xiaohe
+  server: 104.17.210.74
+  port: 443
   udp: true
-  type: ss
-  cipher: aes-256-gcm
-  password: BeaUf9c0AEWH40Pu
-- name: 🇯🇵 日本 (Japan) 49 - xiaohe
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 43 - xiaohe
+  server: 104.19.48.107
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 44 - xiaohe
+  server: 104.16.111.102
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 45 - xiaohe
   server: 104.16.10.22
   port: 443
   udp: true
@@ -626,8 +570,37 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
-- name: 🇯🇵 日本 (Japan) 50 - xiaohe
-  server: 104.21.33.59
+- name: 🇯🇵 日本 (Japan) 46 - xiaohe
+  server: 104.21.70.21
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  client-fingerprint: firefox
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 47 - xiaohe
+  server: 104.16.10.234
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 48 - xiaohe
+  server: 104.19.164.155
   port: 443
   udp: true
   type: vless
@@ -641,8 +614,37 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 49 - xiaohe
+  server: 104.18.42.98
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  client-fingerprint: chrome
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 50 - xiaohe
+  server: 104.19.33.25
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 51 - xiaohe
-  server: 104.16.0.1
+  server: 104.21.70.228
   port: 443
   udp: true
   type: vless
@@ -657,7 +659,7 @@ proxies:
     headers:
       Host: jp3.yohototo.top
 - name: 🇯🇵 日本 (Japan) 52 - xiaohe
-  server: 188.114.98.0
+  server: 152.69.200.216
   port: 443
   udp: true
   type: vless
@@ -671,6 +673,27 @@ proxies:
     path: /tyxyws
     headers:
       Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 53 - xiaohe
+  server: 188.114.97.6
+  port: 443
+  udp: true
+  type: vless
+  uuid: 4e4f1f70-5e56-4a76-bb9d-db087f4690c4
+  tls: true
+  servername: jp3.yohototo.top
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /tyxyws
+    headers:
+      Host: jp3.yohototo.top
+- name: 🇯🇵 日本 (Japan) 54 - xiaohe
+  server: 154.36.158.197
+  port: 8388
+  udp: true
+  type: ss
+  cipher: aes-256-gcm
+  password: BeaUf9c0AEWH40Pu
 proxy-groups:
 - name: PROXIES
   type: select
@@ -728,6 +751,8 @@ proxy-groups:
   - 🇯🇵 日本 (Japan) 50 - xiaohe
   - 🇯🇵 日本 (Japan) 51 - xiaohe
   - 🇯🇵 日本 (Japan) 52 - xiaohe
+  - 🇯🇵 日本 (Japan) 53 - xiaohe
+  - 🇯🇵 日本 (Japan) 54 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -785,5 +810,7 @@ proxy-groups:
   - 🇯🇵 日本 (Japan) 50 - xiaohe
   - 🇯🇵 日本 (Japan) 51 - xiaohe
   - 🇯🇵 日本 (Japan) 52 - xiaohe
+  - 🇯🇵 日本 (Japan) 53 - xiaohe
+  - 🇯🇵 日本 (Japan) 54 - xiaohe
 rules:
 - MATCH,PROXIES

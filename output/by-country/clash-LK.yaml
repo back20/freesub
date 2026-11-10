@@ -5,7 +5,7 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇱🇰 斯里兰卡 (Sri Lanka) 01 - xiaohe
-  server: 170.114.46.6
+  server: 170.114.45.6
   port: 2096
   udp: true
   type: vless
@@ -20,7 +20,7 @@ proxies:
     headers:
       Host: pcloud.z-tas.com
 - name: 🇱🇰 斯里兰卡 (Sri Lanka) 02 - xiaohe
-  server: 170.114.45.6
+  server: 170.114.46.6
   port: 2096
   udp: true
   type: vless

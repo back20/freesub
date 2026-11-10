@@ -13,10 +13,9 @@ proxies:
   tls: true
   servername: fs.qicai99.com
   skip-cert-verify: false
-  client-fingerprint: chrome
   network: ws
   ws-opts:
-    path: /
+    path: /fp=chrome
     headers:
       Host: fs.qicai99.com
 - name: 🇬🇷 希腊 (Greece) 02 - xiaohe
@@ -28,25 +27,11 @@ proxies:
   tls: true
   servername: fs.qicai99.com
   skip-cert-verify: false
-  client-fingerprint: chrome
   network: ws
   ws-opts:
-    path: /
+    path: /fp=chrome
     headers:
       Host: fs.qicai99.com
-- name: 🇬🇷 希腊 (Greece) 03 - xiaohe
-  server: 85.90.197.220
-  port: 443
-  udp: true
-  type: vless
-  uuid: 8f704ed6-9a1a-4d04-94dd-1bff501716de
-  flow: xtls-rprx-vision
-  tls: true
-  reality-opts:
-    public-key: biNcdU5mywtNw-KyPpLHindBxdEyAolT1WJ26N0b7y4
-    short-id: 94acb54627612d43
-  servername: www.cloudflare.com
-  client-fingerprint: chrome
 proxy-groups:
 - name: PROXIES
   type: select
@@ -54,7 +39,6 @@ proxy-groups:
   - AUTO
   - 🇬🇷 希腊 (Greece) 01 - xiaohe
   - 🇬🇷 希腊 (Greece) 02 - xiaohe
-  - 🇬🇷 希腊 (Greece) 03 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -62,6 +46,5 @@ proxy-groups:
   proxies:
   - 🇬🇷 希腊 (Greece) 01 - xiaohe
   - 🇬🇷 希腊 (Greece) 02 - xiaohe
-  - 🇬🇷 希腊 (Greece) 03 - xiaohe
 rules:
 - MATCH,PROXIES

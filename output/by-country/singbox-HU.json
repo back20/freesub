@@ -5,24 +5,20 @@
   "outbounds": [
     {
       "type": "vless",
-      "tag": "🇮🇸 冰岛 (Iceland) 01 - xiaohe",
-      "server": "191.44.112.170",
-      "server_port": 443,
-      "uuid": "46d221fa-e9b4-748c-4eae-019a88e42991",
+      "tag": "🇭🇺 匈牙利 (Hungary) 01 - xiaohe",
+      "server": "38.180.225.247",
+      "server_port": 2053,
+      "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
       "tls": {
         "enabled": true,
-        "server_name": "orbylume.my.to",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
+        "server_name": "fs.qicai99.com",
+        "insecure": false
       },
       "transport": {
         "type": "ws",
-        "path": "/tvpn-tor/is",
+        "path": "/fp=chrome",
         "headers": {
-          "Host": "orbylume.my.to"
+          "Host": "fs.qicai99.com"
         }
       }
     },
@@ -31,14 +27,14 @@
       "tag": "select",
       "outbounds": [
         "auto",
-        "🇮🇸 冰岛 (Iceland) 01 - xiaohe"
+        "🇭🇺 匈牙利 (Hungary) 01 - xiaohe"
       ]
     },
     {
       "type": "urltest",
       "tag": "auto",
       "outbounds": [
-        "🇮🇸 冰岛 (Iceland) 01 - xiaohe"
+        "🇭🇺 匈牙利 (Hungary) 01 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },
