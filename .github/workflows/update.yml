@@ -1,14 +1,28 @@
 name: Update Subscriptions
 
 on:
-  workflow_dispatch:  # 仅保留手动触发按钮
+  schedule:
+    # ★ 每小时自动刷新: 免费节点寿命常常只有 1~3 小时, 手动触发时遇到"刚抓到手就全 -1"
+    #   很常见; 参考项目也是小时级刷新。公开仓库 Actions 分钟数不计量。
+    - cron: '0 * * * *'
+  workflow_dispatch:  # 保留手动触发按钮
+    inputs:
+      concurrency:
+        description: '测活并发数 (留空=48). 若日志里 no_liveness 占比异常高、p90 逼近超时, 试 32 或 24'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
     permissions:
       contents: write
+    # ★ job 级并发组: 防止两次手动运行同时 git push 互相冲突/覆盖
+    concurrency:
+      group: update-subscriptions-${{ github.ref_name }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout Code
@@ -25,12 +39,37 @@ jobs:
         run: |
           pip install -r scripts/requirements.txt
 
+      # ★ 缓存 sing-box 内核 + GeoLite2 mmdb: 旧版每次运行都要重新下载 ~40MB,
+      #   在十几分钟的耗时里占掉一大块。按自然周更换 key, 保证 mmdb 至少每周刷新。
+      - name: Compute runtime cache week
+        id: runtime-week
+        run: echo "week=$(date -u +%Y-W%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore runtime cache (sing-box + mmdb)
+        uses: actions/cache@v4
+        with:
+          path: runtime
+          key: runtime-${{ runner.os }}-${{ steps.runtime-week.outputs.week }}
+
       - name: Run Real-Prober and Classifier (sing-box v1.14 全协议)
         run: |
           python scripts/main_v2.py
         env:
           # 便于 ip-api 等识别限速; GitHub runner 出口为美国 Azure
           PYTHONUNBUFFERED: '1'
+          # 并发可调: 空值/非法值由脚本回退默认 48
+          PROBE_CONCURRENCY: ${{ inputs.concurrency }}
+          # ★ 提速: CI 海外视角下 TCP 预检失败直接淘汰 (省 40%~60% 无效 sing-box 探测)
+          PREFILTER_DROP: '1'
+          # ★ 全量测活上限: 0 = 不限制 (全部候选都要真实检测)
+          #   设成 3000 会截断 RTT 尾部节点, 可能漏掉家宽/中转节点
+          MAX_FULL_PROBE: '0'
+          # ★ rDNS 兜底默认关闭 (每个未知 IP 最多 2s, 分类阶段明显提速)
+          CLASSIFY_RDNS: '0'
+          # ★ UDP-only (hy2/tuic) 进主订阅: v2rayN 的 socks5/http 前置链式可以转发
+          #   UDP, 用户实测参考项目的台湾 hy2 挂前置可用; 不再一刀切剔除以保留 TW/HK 全量
+          #   udp-direct.* 仍会单独刷新一份; 想回到"主订阅只出 TCP"改成 '0'
+          EXPORT_UDP_TO_MAIN: '1'
 
       - name: Upload test artifacts (调试用, 7天保留)
         uses: actions/upload-artifact@v4
@@ -58,12 +97,15 @@ jobs:
         if: success()
         run: |
           REPO="${GITHUB_REPOSITORY}"
-          p() { curl -s -o /dev/null "https://purge.jsdelivr.net/gh/${REPO}@main/$1" || true; }
+          BRANCH="${GITHUB_REF_NAME}"
+          p() { curl -s -o /dev/null "https://purge.jsdelivr.net/gh/${REPO}@${BRANCH}/$1" || true; }
           p README.md
-          for f in v2ray.txt clash.yaml singbox.json residential.txt residential-clash.yaml residential-singbox.json; do
+          for f in v2ray.txt clash.yaml singbox.json \
+                   residential.txt residential-clash.yaml residential-singbox.json \
+                   udp-direct.txt udp-direct-clash.yaml udp-direct-singbox.json; do
             p "output/$f"
           done
           find output/residential-by-country output/by-country -type f 2>/dev/null | while read -r f; do
             p "$f"; sleep 0.2
           done
-          echo "[+] jsDelivr CDN purge done (after push)"
+          echo "[+] jsDelivr CDN purge done (branch=${BRANCH}, after push)"
