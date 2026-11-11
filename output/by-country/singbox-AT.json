@@ -41,11 +41,7 @@
       "tls": {
         "enabled": true,
         "server_name": "fs.qicai99.com",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
+        "insecure": false
       },
       "transport": {
         "type": "ws",

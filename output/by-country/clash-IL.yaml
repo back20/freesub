@@ -16,7 +16,7 @@ proxies:
     public-key: 8eXftARun6KH38UZhuqIfPR1VF2DLS9RMBZEnF5k6To
     short-id: a3a578ab
   servername: www.apple.com
-  client-fingerprint: random
+  client-fingerprint: chrome
 - name: 🇮🇱 以色列 (Israel) 02 - xiaohe
   server: 64.176.163.182
   port: 443
@@ -26,13 +26,34 @@ proxies:
   sni: exploreeducationsectoropportunitiestodayandadvancecareers.com
   skip-cert-verify: false
 - name: 🇮🇱 以色列 (Israel) 03 - xiaohe
-  server: 129.159.156.109
-  port: 50160
+  server: 64.177.66.9
+  port: 8443
   udp: true
-  type: hysteria2
-  password: f25f19f29ce3fb53a35bf1b35b452a43
-  sni: www.bing.com
-  skip-cert-verify: true
+  type: vless
+  uuid: 5d7b401c-78fa-4254-872e-6d42bf7e75ec
+  tls: true
+  servername: vp7.1145678.xyz
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /events/classfp=chromefp=chrome
+    headers:
+      Host: vp7.1145678.xyz
+- name: 🇮🇱 以色列 (Israel) 04 - xiaohe
+  server: 192.71.27.237
+  port: 443
+  udp: true
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  client-fingerprint: chrome
+  network: ws
+  ws-opts:
+    path: /
+    headers:
+      Host: fs.qicai99.com
 proxy-groups:
 - name: PROXIES
   type: select
@@ -41,6 +62,7 @@ proxy-groups:
   - 🇮🇱 以色列 (Israel) 01 - xiaohe
   - 🇮🇱 以色列 (Israel) 02 - xiaohe
   - 🇮🇱 以色列 (Israel) 03 - xiaohe
+  - 🇮🇱 以色列 (Israel) 04 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -49,5 +71,6 @@ proxy-groups:
   - 🇮🇱 以色列 (Israel) 01 - xiaohe
   - 🇮🇱 以色列 (Israel) 02 - xiaohe
   - 🇮🇱 以色列 (Israel) 03 - xiaohe
+  - 🇮🇱 以色列 (Israel) 04 - xiaohe
 rules:
 - MATCH,PROXIES

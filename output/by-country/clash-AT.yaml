@@ -38,7 +38,6 @@ proxies:
   tls: true
   servername: fs.qicai99.com
   skip-cert-verify: false
-  client-fingerprint: chrome
   network: ws
   ws-opts:
     path: /
