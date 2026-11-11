@@ -6,19 +6,21 @@
     {
       "type": "vless",
       "tag": "🇮🇷 IR 01 - xiaohe",
-      "server": "base.hosamobenl.co.uk",
-      "server_port": 443,
-      "uuid": "667016ca-f02e-4b5f-bfc3-3d8ed81e9bec",
+      "server": "198.16.113.220",
+      "server_port": 8443,
+      "uuid": "98a24806-141a-43d3-b094-bd66c4eb93b8",
+      "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,
-        "server_name": "base.hosamobenl.co.uk",
-        "insecure": false,
-        "alpn": [
-          "http/1.1"
-        ],
+        "server_name": "www.apple.com",
         "utls": {
           "enabled": true,
-          "fingerprint": "chrome"
+          "fingerprint": "firefox"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "8NkTRxC5Q7bptx-8ADobkuhPK-ZN0kEEbzv6tCFGMzE",
+          "short_id": "69984b9e02545831"
         }
       }
     },
@@ -46,9 +48,9 @@
     {
       "type": "vless",
       "tag": "🇮🇷 IR 03 - xiaohe",
-      "server": "198.16.113.219",
+      "server": "198.16.113.218",
       "server_port": 8443,
-      "uuid": "e3e0e1c3-599e-4ae1-8ad4-d9e90effacc4",
+      "uuid": "98a24806-141a-43d3-b094-bd66c4eb93b8",
       "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,
@@ -67,9 +69,9 @@
     {
       "type": "vless",
       "tag": "🇮🇷 IR 04 - xiaohe",
-      "server": "198.16.113.221",
+      "server": "198.16.113.219",
       "server_port": 8443,
-      "uuid": "98a24806-141a-43d3-b094-bd66c4eb93b8",
+      "uuid": "e3e0e1c3-599e-4ae1-8ad4-d9e90effacc4",
       "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,

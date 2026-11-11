@@ -12,7 +12,7 @@
       "tls": {
         "enabled": true,
         "server_name": "in001.zestapp778.com",
-        "insecure": false,
+        "insecure": true,
         "utls": {
           "enabled": true,
           "fingerprint": "firefox"
@@ -36,12 +36,21 @@
       }
     },
     {
+      "type": "vmess",
+      "tag": "🇮🇩 印尼 (Indonesia) 03 - xiaohe",
+      "server": "zfd-boardv2.kunlun01dns.com",
+      "server_port": 16298,
+      "uuid": "0802ac03-7973-39ef-a019-ba02de6c01e1",
+      "security": "auto"
+    },
+    {
       "type": "selector",
       "tag": "select",
       "outbounds": [
         "auto",
         "🇮🇩 印尼 (Indonesia) 01 - xiaohe",
-        "🇮🇩 印尼 (Indonesia) 02 - xiaohe"
+        "🇮🇩 印尼 (Indonesia) 02 - xiaohe",
+        "🇮🇩 印尼 (Indonesia) 03 - xiaohe"
       ]
     },
     {
@@ -49,7 +58,8 @@
       "tag": "auto",
       "outbounds": [
         "🇮🇩 印尼 (Indonesia) 01 - xiaohe",
-        "🇮🇩 印尼 (Indonesia) 02 - xiaohe"
+        "🇮🇩 印尼 (Indonesia) 02 - xiaohe",
+        "🇮🇩 印尼 (Indonesia) 03 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },
