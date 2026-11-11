@@ -6,9 +6,16 @@
     {
       "type": "vless",
       "tag": "🇧🇾 白俄罗斯 (Belarus) 01 - xiaohe",
-      "server": "178.172.227.124",
-      "server_port": 10443,
-      "uuid": "1af36694-b548-4b18-89a0-bc076eab4ed7"
+      "server": "95.128.71.79",
+      "server_port": 14430,
+      "uuid": "8cef7621-c6f0-486e-b51d-59c30c5b0b25",
+      "transport": {
+        "type": "ws",
+        "path": "/vless",
+        "headers": {
+          "Host": "95.128.71.79"
+        }
+      }
     },
     {
       "type": "vless",
@@ -18,23 +25,27 @@
       "uuid": "b6e5dc56-836f-48c1-9163-b0b0b43b647d",
       "transport": {
         "type": "ws",
-        "path": "/vless",
-        "headers": {
-          "Host": "178.172.227.228"
-        }
+        "path": "/vless"
       }
     },
     {
       "type": "vless",
       "tag": "🇧🇾 白俄罗斯 (Belarus) 03 - xiaohe",
-      "server": "95.128.71.79",
-      "server_port": 14430,
-      "uuid": "8cef7621-c6f0-486e-b51d-59c30c5b0b25",
-      "transport": {
-        "type": "ws",
-        "path": "/vless",
-        "headers": {
-          "Host": "95.128.71.79"
+      "server": "178.172.227.228",
+      "server_port": 10444,
+      "uuid": "b6e5dc56-836f-48c1-9163-b0b0b43b647d",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "ads.x5.ru",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "safari"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "0oTkcqwLTUNLnSOP-VUWErmy6usAIg-biBE6ioZO-Vo",
+          "short_id": "8debcf36f1cc69ff"
         }
       }
     },
@@ -76,9 +87,16 @@
     {
       "type": "vless",
       "tag": "🇧🇾 白俄罗斯 (Belarus) 06 - xiaohe",
-      "server": "178.172.227.228",
+      "server": "178.172.227.124",
+      "server_port": 10443,
+      "uuid": "1af36694-b548-4b18-89a0-bc076eab4ed7"
+    },
+    {
+      "type": "vless",
+      "tag": "🇧🇾 白俄罗斯 (Belarus) 07 - xiaohe",
+      "server": "178.172.227.124",
       "server_port": 10444,
-      "uuid": "b6e5dc56-836f-48c1-9163-b0b0b43b647d",
+      "uuid": "1af36694-b548-4b18-89a0-bc076eab4ed7",
       "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,
@@ -96,22 +114,22 @@
     },
     {
       "type": "vless",
-      "tag": "🇧🇾 白俄罗斯 (Belarus) 07 - xiaohe",
-      "server": "178.172.227.124",
-      "server_port": 10444,
-      "uuid": "1af36694-b548-4b18-89a0-bc076eab4ed7",
+      "tag": "🇧🇾 白俄罗斯 (Belarus) 08 - xiaohe",
+      "server": "196.245.217.70",
+      "server_port": 443,
+      "uuid": "4201786b-d99b-4147-a5f0-20d47acddb81",
       "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,
-        "server_name": "ads.x5.ru",
+        "server_name": "8a2e72t.nl11.h1clayd.click",
         "utls": {
           "enabled": true,
           "fingerprint": "firefox"
         },
         "reality": {
           "enabled": true,
-          "public_key": "0oTkcqwLTUNLnSOP-VUWErmy6usAIg-biBE6ioZO-Vo",
-          "short_id": "8debcf36f1cc69ff"
+          "public_key": "VZS639V1i-35g7VXb9EoTYL-Srm7858sxcvFAunncmA",
+          "short_id": "8d0d0679f42ffd98"
         }
       }
     },
@@ -126,7 +144,8 @@
         "🇧🇾 白俄罗斯 (Belarus) 04 - xiaohe",
         "🇧🇾 白俄罗斯 (Belarus) 05 - xiaohe",
         "🇧🇾 白俄罗斯 (Belarus) 06 - xiaohe",
-        "🇧🇾 白俄罗斯 (Belarus) 07 - xiaohe"
+        "🇧🇾 白俄罗斯 (Belarus) 07 - xiaohe",
+        "🇧🇾 白俄罗斯 (Belarus) 08 - xiaohe"
       ]
     },
     {
@@ -139,7 +158,8 @@
         "🇧🇾 白俄罗斯 (Belarus) 04 - xiaohe",
         "🇧🇾 白俄罗斯 (Belarus) 05 - xiaohe",
         "🇧🇾 白俄罗斯 (Belarus) 06 - xiaohe",
-        "🇧🇾 白俄罗斯 (Belarus) 07 - xiaohe"
+        "🇧🇾 白俄罗斯 (Belarus) 07 - xiaohe",
+        "🇧🇾 白俄罗斯 (Belarus) 08 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },

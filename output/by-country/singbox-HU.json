@@ -16,7 +16,7 @@
       },
       "transport": {
         "type": "ws",
-        "path": "/fp=chrome",
+        "path": "/",
         "headers": {
           "Host": "fs.qicai99.com"
         }

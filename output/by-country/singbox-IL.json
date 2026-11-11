@@ -39,40 +39,17 @@
     {
       "type": "vless",
       "tag": "🇮🇱 以色列 (Israel) 03 - xiaohe",
-      "server": "64.177.66.9",
-      "server_port": 8443,
-      "uuid": "5d7b401c-78fa-4254-872e-6d42bf7e75ec",
-      "tls": {
-        "enabled": true,
-        "server_name": "vp7.1145678.xyz",
-        "insecure": false
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/events/classfp=chromefp=chrome",
-        "headers": {
-          "Host": "vp7.1145678.xyz"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "🇮🇱 以色列 (Israel) 04 - xiaohe",
       "server": "192.71.27.237",
       "server_port": 443,
       "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
       "tls": {
         "enabled": true,
         "server_name": "fs.qicai99.com",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
+        "insecure": false
       },
       "transport": {
         "type": "ws",
-        "path": "/",
+        "path": "/fp=chrome",
         "headers": {
           "Host": "fs.qicai99.com"
         }
@@ -85,8 +62,7 @@
         "auto",
         "🇮🇱 以色列 (Israel) 01 - xiaohe",
         "🇮🇱 以色列 (Israel) 02 - xiaohe",
-        "🇮🇱 以色列 (Israel) 03 - xiaohe",
-        "🇮🇱 以色列 (Israel) 04 - xiaohe"
+        "🇮🇱 以色列 (Israel) 03 - xiaohe"
       ]
     },
     {
@@ -95,8 +71,7 @@
       "outbounds": [
         "🇮🇱 以色列 (Israel) 01 - xiaohe",
         "🇮🇱 以色列 (Israel) 02 - xiaohe",
-        "🇮🇱 以色列 (Israel) 03 - xiaohe",
-        "🇮🇱 以色列 (Israel) 04 - xiaohe"
+        "🇮🇱 以色列 (Israel) 03 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },
