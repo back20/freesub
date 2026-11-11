@@ -5,9 +5,9 @@
   "outbounds": [
     {
       "type": "vless",
-      "tag": "🇯🇵 日本 (Japan) 01 (家宽) - xiaohe",
+      "tag": "🇵🇪 秘鲁 (Peru) 01 - xiaohe",
       "server": "23.95.72.244",
-      "server_port": 52541,
+      "server_port": 50122,
       "uuid": "9a5e7b1c-bf39-4b1f-891f-ac87824ee38f",
       "flow": "xtls-rprx-vision",
       "tls": {
@@ -15,12 +15,12 @@
         "server_name": "api.adidas.com",
         "utls": {
           "enabled": true,
-          "fingerprint": "firefox"
+          "fingerprint": "qq"
         },
         "reality": {
           "enabled": true,
-          "public_key": "_DBQoND5nxcCxxCU0tO0b-h0E10ZFtPTwSp8CJ-f-gs",
-          "short_id": "ce5793a7ad9594"
+          "public_key": "a9XavLXaCvwAvMpMWT3XlJ_MvXDd41cA7Mp-DiN6WCo",
+          "short_id": "79c25836ab103a48"
         }
       }
     },
@@ -29,14 +29,14 @@
       "tag": "select",
       "outbounds": [
         "auto",
-        "🇯🇵 日本 (Japan) 01 (家宽) - xiaohe"
+        "🇵🇪 秘鲁 (Peru) 01 - xiaohe"
       ]
     },
     {
       "type": "urltest",
       "tag": "auto",
       "outbounds": [
-        "🇯🇵 日本 (Japan) 01 (家宽) - xiaohe"
+        "🇵🇪 秘鲁 (Peru) 01 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },

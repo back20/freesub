@@ -5,21 +5,6 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇬🇷 希腊 (Greece) 01 - xiaohe
-  server: 85.90.197.158
-  port: 443
-  udp: true
-  type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /
-    headers:
-      Host: fs.qicai99.com
-- name: 🇬🇷 希腊 (Greece) 02 - xiaohe
   server: 85.90.197.159
   port: 443
   udp: true
@@ -40,13 +25,11 @@ proxy-groups:
   proxies:
   - AUTO
   - 🇬🇷 希腊 (Greece) 01 - xiaohe
-  - 🇬🇷 希腊 (Greece) 02 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
   interval: 300
   proxies:
   - 🇬🇷 希腊 (Greece) 01 - xiaohe
-  - 🇬🇷 希腊 (Greece) 02 - xiaohe
 rules:
 - MATCH,PROXIES

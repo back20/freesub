@@ -6,29 +6,6 @@
     {
       "type": "vless",
       "tag": "🇬🇷 希腊 (Greece) 01 - xiaohe",
-      "server": "85.90.197.158",
-      "server_port": 443,
-      "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
-      "tls": {
-        "enabled": true,
-        "server_name": "fs.qicai99.com",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "fs.qicai99.com"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "🇬🇷 希腊 (Greece) 02 - xiaohe",
       "server": "85.90.197.159",
       "server_port": 443,
       "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
@@ -54,16 +31,14 @@
       "tag": "select",
       "outbounds": [
         "auto",
-        "🇬🇷 希腊 (Greece) 01 - xiaohe",
-        "🇬🇷 希腊 (Greece) 02 - xiaohe"
+        "🇬🇷 希腊 (Greece) 01 - xiaohe"
       ]
     },
     {
       "type": "urltest",
       "tag": "auto",
       "outbounds": [
-        "🇬🇷 希腊 (Greece) 01 - xiaohe",
-        "🇬🇷 希腊 (Greece) 02 - xiaohe"
+        "🇬🇷 希腊 (Greece) 01 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },
