@@ -6,48 +6,27 @@
     {
       "type": "vless",
       "tag": "🇬🇷 希腊 (Greece) 01 - xiaohe",
-      "server": "85.90.197.159",
-      "server_port": 443,
-      "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
+      "server": "23.95.72.244",
+      "server_port": 50121,
+      "uuid": "9a5e7b1c-bf39-4b1f-891f-ac87824ee38f",
+      "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,
-        "server_name": "fs.qicai99.com",
-        "insecure": false
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "fs.qicai99.com"
+        "server_name": "api.adidas.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "wwVM0-8EUXMZthXS6SAGpu3xSPbf2kjWB_A3i-TCOS0",
+          "short_id": "888cb24cb698"
         }
       }
     },
     {
       "type": "vless",
       "tag": "🇬🇷 希腊 (Greece) 02 - xiaohe",
-      "server": "85.90.197.158",
-      "server_port": 443,
-      "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
-      "tls": {
-        "enabled": true,
-        "server_name": "fs.qicai99.com",
-        "insecure": false,
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        }
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/",
-        "headers": {
-          "Host": "fs.qicai99.com"
-        }
-      }
-    },
-    {
-      "type": "vless",
-      "tag": "🇬🇷 希腊 (Greece) 03 - xiaohe",
       "server": "85.90.197.220",
       "server_port": 443,
       "uuid": "8f704ed6-9a1a-4d04-94dd-1bff501716de",
@@ -72,8 +51,7 @@
       "outbounds": [
         "auto",
         "🇬🇷 希腊 (Greece) 01 - xiaohe",
-        "🇬🇷 希腊 (Greece) 02 - xiaohe",
-        "🇬🇷 希腊 (Greece) 03 - xiaohe"
+        "🇬🇷 希腊 (Greece) 02 - xiaohe"
       ]
     },
     {
@@ -81,8 +59,7 @@
       "tag": "auto",
       "outbounds": [
         "🇬🇷 希腊 (Greece) 01 - xiaohe",
-        "🇬🇷 希腊 (Greece) 02 - xiaohe",
-        "🇬🇷 希腊 (Greece) 03 - xiaohe"
+        "🇬🇷 希腊 (Greece) 02 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },

@@ -5,17 +5,6 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇫🇮 芬兰 (Finland) 01 - xiaohe
-  server: 45.144.234.157
-  port: 14430
-  udp: true
-  type: vless
-  uuid: 59b0d30e-9b29-4fda-a35c-b2901ec32db7
-  network: ws
-  ws-opts:
-    path: /vless
-    headers:
-      Host: 45.144.234.157
-- name: 🇫🇮 芬兰 (Finland) 02 - xiaohe
   server: 177.202.75.56
   port: 443
   udp: true
@@ -23,7 +12,53 @@ proxies:
   password: 146d567c-6335-4e63-a8aa-7ec068642440
   sni: fi1.obxodvpn.us
   skip-cert-verify: false
+- name: 🇫🇮 芬兰 (Finland) 02 - xiaohe
+  server: fi1.obxodvpn.us
+  port: 443
+  udp: true
+  type: hysteria2
+  password: 146d567c-6335-4e63-a8aa-7ec068642440
+  sni: fi1.obxodvpn.us
+  skip-cert-verify: false
 - name: 🇫🇮 芬兰 (Finland) 03 - xiaohe
+  server: 65.109.208.183
+  port: 443
+  udp: true
+  type: vless
+  uuid: 5f07a2a1-82a5-494d-847b-b882e6903192
+  tls: true
+  servername: free.for.member.iiproxy.com
+  skip-cert-verify: false
+  client-fingerprint: chrome
+- name: 🇫🇮 芬兰 (Finland) 04 - xiaohe
+  server: 138.124.49.108
+  port: 8443
+  udp: true
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /fp=chrome
+    headers:
+      Host: fs.qicai99.com
+- name: 🇫🇮 芬兰 (Finland) 05 - xiaohe
+  server: 138.124.124.157
+  port: 443
+  udp: true
+  type: vless
+  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
+  tls: true
+  servername: fs.qicai99.com
+  skip-cert-verify: false
+  network: ws
+  ws-opts:
+    path: /
+    headers:
+      Host: fs.qicai99.com
+- name: 🇫🇮 芬兰 (Finland) 06 - xiaohe
   server: 169.40.34.41
   port: 443
   udp: true
@@ -36,63 +71,17 @@ proxies:
     short-id: 1c3e8241a8743df9
   servername: key-master-saver.com
   client-fingerprint: chrome
-- name: 🇫🇮 芬兰 (Finland) 04 - xiaohe
-  server: fi1.obxodvpn.us
-  port: 443
-  udp: true
-  type: hysteria2
-  password: 146d567c-6335-4e63-a8aa-7ec068642440
-  sni: fi1.obxodvpn.us
-  skip-cert-verify: false
-- name: 🇫🇮 芬兰 (Finland) 05 - xiaohe
-  server: 65.109.208.183
-  port: 443
-  udp: true
-  type: vless
-  uuid: 5f07a2a1-82a5-494d-847b-b882e6903192
-  tls: true
-  servername: free.for.member.iiproxy.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
-- name: 🇫🇮 芬兰 (Finland) 06 - xiaohe
-  server: free.for.member.iiproxy.com
-  port: 443
-  udp: true
-  type: vless
-  uuid: 5f07a2a1-82a5-494d-847b-b882e6903192
-  tls: true
-  servername: free.for.member.iiproxy.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
 - name: 🇫🇮 芬兰 (Finland) 07 - xiaohe
-  server: 138.124.124.157
-  port: 443
+  server: 45.144.234.157
+  port: 14430
   udp: true
   type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
+  uuid: 59b0d30e-9b29-4fda-a35c-b2901ec32db7
   network: ws
   ws-opts:
-    path: /fp=chrome
+    path: /vless
     headers:
-      Host: fs.qicai99.com
-- name: 🇫🇮 芬兰 (Finland) 08 - xiaohe
-  server: 138.124.49.108
-  port: 8443
-  udp: true
-  type: vless
-  uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
-  tls: true
-  servername: fs.qicai99.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /fp=chrome
-    headers:
-      Host: fs.qicai99.com
+      Host: 45.144.234.157
 proxy-groups:
 - name: PROXIES
   type: select
@@ -105,7 +94,6 @@ proxy-groups:
   - 🇫🇮 芬兰 (Finland) 05 - xiaohe
   - 🇫🇮 芬兰 (Finland) 06 - xiaohe
   - 🇫🇮 芬兰 (Finland) 07 - xiaohe
-  - 🇫🇮 芬兰 (Finland) 08 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -118,6 +106,5 @@ proxy-groups:
   - 🇫🇮 芬兰 (Finland) 05 - xiaohe
   - 🇫🇮 芬兰 (Finland) 06 - xiaohe
   - 🇫🇮 芬兰 (Finland) 07 - xiaohe
-  - 🇫🇮 芬兰 (Finland) 08 - xiaohe
 rules:
 - MATCH,PROXIES
