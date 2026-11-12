@@ -12,23 +12,18 @@
       "security": "auto"
     },
     {
-      "type": "vless",
+      "type": "trojan",
       "tag": "🇲🇾 马来西亚 (Malaysia) 02 - xiaohe",
-      "server": "23.95.72.244",
-      "server_port": 50174,
-      "uuid": "9a5e7b1c-bf39-4b1f-891f-ac87824ee38f",
-      "flow": "xtls-rprx-vision",
+      "server": "47.250.84.25",
+      "server_port": 443,
+      "password": "5931134d1cde66bf83a54acdfebe7ab2",
       "tls": {
         "enabled": true,
-        "server_name": "api.adidas.com",
+        "server_name": "47.250.84.25",
+        "insecure": true,
         "utls": {
           "enabled": true,
-          "fingerprint": "qq"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "tmlOT7vvbKwBuucRKRm33TqocfvHfgDAstvca5Yy-gU",
-          "short_id": "8b10495bdb"
+          "fingerprint": "chrome"
         }
       }
     },

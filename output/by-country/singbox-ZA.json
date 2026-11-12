@@ -6,10 +6,10 @@
     {
       "type": "shadowsocks",
       "tag": "🇿🇦 南非 (South Africa) 01 - xiaohe",
-      "server": "102.133.165.160",
-      "server_port": 16233,
+      "server": "20.164.204.82",
+      "server_port": 443,
       "method": "chacha20-ietf-poly1305",
-      "password": "Xsy8Ox4yOV3xLlpxtjzs3X"
+      "password": "zJINhErlCXBpyP95"
     },
     {
       "type": "shadowsocks",
@@ -22,10 +22,10 @@
     {
       "type": "shadowsocks",
       "tag": "🇿🇦 南非 (South Africa) 03 - xiaohe",
-      "server": "20.164.204.82",
-      "server_port": 443,
+      "server": "102.133.165.160",
+      "server_port": 16233,
       "method": "chacha20-ietf-poly1305",
-      "password": "zJINhErlCXBpyP95"
+      "password": "Xsy8Ox4yOV3xLlpxtjzs3X"
     },
     {
       "type": "trojan",
