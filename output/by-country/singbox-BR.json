@@ -4,24 +4,16 @@
   },
   "outbounds": [
     {
-      "type": "vless",
+      "type": "vmess",
       "tag": "🇧🇷 巴西 (Brazil) 01 - xiaohe",
-      "server": "109.104.155.131",
-      "server_port": 2053,
-      "uuid": "bb3723d7-462e-442c-9472-496750476f45",
-      "flow": "xtls-rprx-vision",
+      "server": "103.88.232.55",
+      "server_port": 1270,
+      "uuid": "5c040f1d-45db-43bd-8d46-e4950e433735",
+      "security": "auto",
       "tls": {
         "enabled": true,
-        "server_name": "dir-br1.filesapp.org",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
-        },
-        "reality": {
-          "enabled": true,
-          "public_key": "MwJoFytMWCLdwCCt0cSTM8L6ZzYKxlZbFMML_3nnJms",
-          "short_id": "508118120e886b5a"
-        }
+        "server_name": "xmfhlpy.com",
+        "insecure": false
       }
     },
     {
@@ -39,19 +31,6 @@
     {
       "type": "vmess",
       "tag": "🇧🇷 巴西 (Brazil) 03 - xiaohe",
-      "server": "103.88.232.55",
-      "server_port": 1270,
-      "uuid": "5c040f1d-45db-43bd-8d46-e4950e433735",
-      "security": "auto",
-      "tls": {
-        "enabled": true,
-        "server_name": "xmfhlpy.com",
-        "insecure": false
-      }
-    },
-    {
-      "type": "vmess",
-      "tag": "🇧🇷 巴西 (Brazil) 04 - xiaohe",
       "server": "103.14.27.207",
       "server_port": 1270,
       "uuid": "5c040f1d-45db-43bd-8d46-e4950e433735",
@@ -69,8 +48,7 @@
         "auto",
         "🇧🇷 巴西 (Brazil) 01 - xiaohe",
         "🇧🇷 巴西 (Brazil) 02 - xiaohe",
-        "🇧🇷 巴西 (Brazil) 03 - xiaohe",
-        "🇧🇷 巴西 (Brazil) 04 - xiaohe"
+        "🇧🇷 巴西 (Brazil) 03 - xiaohe"
       ]
     },
     {
@@ -79,8 +57,7 @@
       "outbounds": [
         "🇧🇷 巴西 (Brazil) 01 - xiaohe",
         "🇧🇷 巴西 (Brazil) 02 - xiaohe",
-        "🇧🇷 巴西 (Brazil) 03 - xiaohe",
-        "🇧🇷 巴西 (Brazil) 04 - xiaohe"
+        "🇧🇷 巴西 (Brazil) 03 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },

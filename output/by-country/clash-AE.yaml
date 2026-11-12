@@ -5,14 +5,14 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇦🇪 阿联酋 (UAE) 01 - xiaohe
-  server: 151.241.19.29
+  server: 151.241.19.36
   port: 19999
   udp: true
   type: ss
   cipher: aes-256-gcm
   password: ZRpgaBeGxtENIXgvhpkZBKz9GnWRS2dYcx9O+a2iwN4=
 - name: 🇦🇪 阿联酋 (UAE) 02 - xiaohe
-  server: 151.241.19.36
+  server: 151.241.19.29
   port: 19999
   udp: true
   type: ss
@@ -29,6 +29,16 @@ proxies:
   obfs: salamander
   obfs-password: rG07s3COMIEvdnQipRyWzx_H_2xygNC3
 - name: 🇦🇪 阿联酋 (UAE) 04 - xiaohe
+  server: hy2.aspidnet.xyz
+  port: 443
+  udp: true
+  type: hysteria2
+  password: p7Q76LzlnS4hIzr1W3staBOnUe_WwSkR
+  sni: hy2.aspidnet.xyz
+  skip-cert-verify: false
+  obfs: salamander
+  obfs-password: rG07s3COMIEvdnQipRyWzx_H_2xygNC3
+- name: 🇦🇪 阿联酋 (UAE) 05 - xiaohe
   server: 95.174.68.188
   port: 14430
   udp: true
@@ -37,33 +47,15 @@ proxies:
   network: ws
   ws-opts:
     path: /vless
-    headers:
-      Host: 95.174.68.188
-- name: 🇦🇪 阿联酋 (UAE) 05 - xiaohe
-  server: 16.106.7.232
-  port: 20086
-  udp: true
-  type: trojan
-  password: d9064589-74af-432a-9390-5d8a9da281bf
-  sni: hk.catxstar.com
-  skip-cert-verify: false
 - name: 🇦🇪 阿联酋 (UAE) 06 - xiaohe
-  server: sclass-00.catcat321.com
-  port: 20123
-  udp: true
-  type: trojan
-  password: d9064589-74af-432a-9390-5d8a9da281bf
-  sni: hk.catxstar.com
-  skip-cert-verify: true
-- name: 🇦🇪 阿联酋 (UAE) 07 - xiaohe
-  server: 217.217.222.230
+  server: 16.106.7.232
   port: 20123
   udp: true
   type: trojan
   password: d9064589-74af-432a-9390-5d8a9da281bf
   sni: hk.catxstar.com
   skip-cert-verify: false
-- name: 🇦🇪 阿联酋 (UAE) 08 - xiaohe
+- name: 🇦🇪 阿联酋 (UAE) 07 - xiaohe
   server: 151.241.19.44
   port: 1270
   udp: true
@@ -73,6 +65,35 @@ proxies:
   cipher: auto
   tls: true
   servername: xmfhlpy.com
+  skip-cert-verify: false
+- name: 🇦🇪 阿联酋 (UAE) 08 - xiaohe
+  server: msk10.gacvpn.site
+  port: 443
+  udp: true
+  type: vless
+  uuid: 3f5e89d5-591f-4ac9-b071-b05680b573c3
+  flow: xtls-rprx-vision
+  tls: true
+  reality-opts:
+    public-key: Caj4X3VjnHfdRQzWLmjFCiG_CGw0scYYni6UxVfBs38
+    short-id: db6a4219fb
+  servername: nl3-edge.gacvpn.site
+  client-fingerprint: safari
+- name: 🇦🇪 阿联酋 (UAE) 09 - xiaohe
+  server: sclass-00.catcat321.com
+  port: 20123
+  udp: true
+  type: trojan
+  password: d9064589-74af-432a-9390-5d8a9da281bf
+  sni: hk.catxstar.com
+  skip-cert-verify: false
+- name: 🇦🇪 阿联酋 (UAE) 10 - xiaohe
+  server: 217.217.222.230
+  port: 20123
+  udp: true
+  type: trojan
+  password: d9064589-74af-432a-9390-5d8a9da281bf
+  sni: hk.catxstar.com
   skip-cert-verify: false
 proxy-groups:
 - name: PROXIES
@@ -87,6 +108,8 @@ proxy-groups:
   - 🇦🇪 阿联酋 (UAE) 06 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 07 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 08 - xiaohe
+  - 🇦🇪 阿联酋 (UAE) 09 - xiaohe
+  - 🇦🇪 阿联酋 (UAE) 10 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -100,5 +123,7 @@ proxy-groups:
   - 🇦🇪 阿联酋 (UAE) 06 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 07 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 08 - xiaohe
+  - 🇦🇪 阿联酋 (UAE) 09 - xiaohe
+  - 🇦🇪 阿联酋 (UAE) 10 - xiaohe
 rules:
 - MATCH,PROXIES

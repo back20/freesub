@@ -12,47 +12,36 @@ proxies:
   cipher: aes-256-gcm
   password: DgMywXKqojHXeuXY8hOJaYGPFcjweCIJeD5cdg/cUUY=
 - name: 🇭🇰 中国香港 (Hong Kong) 02 - xiaohe
-  server: 47.244.120.197
-  port: 23026
+  server: ac91889e-tmm5c0-u3xqxa-1q91p.hk3.hyhuawei.com
+  port: 443
   udp: true
-  type: vmess
-  uuid: b9de1bc9-baa7-41ac-86f7-ccd59695cb21
-  alterId: 0
-  cipher: auto
-  network: ws
-  ws-opts:
-    path: /arki
-    headers:
-      Host: 47.244.120.197
+  type: hysteria2
+  password: c11ff50c-f582-11ee-94df-f23c9164ca5d
+  sni: ac91889e-tmm5c0-u3xqxa-1q91p.hk3.hyhuawei.com
+  skip-cert-verify: true
 - name: 🇭🇰 中国香港 (Hong Kong) 03 - xiaohe
-  server: 47.244.120.197
-  port: 44867
+  server: 4e3e8635-tmm5c0-tvh2gy-1qzi1.hk3.hyhuawei.com
+  port: 443
   udp: true
-  type: vmess
-  uuid: 845e6b08-2919-4290-ade0-5dc7dcea59ca
-  alterId: 0
-  cipher: auto
-  network: ws
-  ws-opts:
-    path: /arki
+  type: hysteria2
+  password: 8f99107c-f091-11ee-9935-f23c9164ca5d
+  sni: 4e3e8635-tmm5c0-tvh2gy-1qzi1.hk3.hyhuawei.com
+  skip-cert-verify: true
 - name: 🇭🇰 中国香港 (Hong Kong) 04 - xiaohe
-  server: 47.244.120.197
-  port: 36703
+  server: 2193972c-tmkao0-u1vxv2-v3c2.hk3.hyhuawei.com
+  port: 443
   udp: true
-  type: vmess
-  uuid: 45b83519-9c4f-4052-a11b-02e017b636d4
-  alterId: 0
-  cipher: auto
-  network: ws
-  ws-opts:
-    path: /arki
+  type: hysteria2
+  password: 5f091cbe-fb34-11ea-9777-f23c9164ca5d
+  sni: 2193972c-tmkao0-u1vxv2-v3c2.hk3.hyhuawei.com
+  skip-cert-verify: true
 - name: 🇭🇰 中国香港 (Hong Kong) 05 - xiaohe
-  server: 202.146.222.29
+  server: 202.146.222.174
   port: 443
   udp: true
   type: hysteria2
   password: H7mP2xY9kJ4nQ8wR5tF6vB3z
-  sni: 202.146.222.29
+  sni: 202.146.222.174
   skip-cert-verify: true
 - name: 🇭🇰 中国香港 (Hong Kong) 06 - xiaohe
   server: 202.146.222.89
@@ -63,46 +52,22 @@ proxies:
   sni: https://t.me/clashv8\u0001f1e8\u0001f1f3
   skip-cert-verify: true
 - name: 🇭🇰 中国香港 (Hong Kong) 07 - xiaohe
-  server: 202.146.222.174
+  server: 3de2432e-tmm5c0-tonrqx-1khwf.hk3.hyhuawei.com
+  port: 443
+  udp: true
+  type: hysteria2
+  password: 92bd8c68-6434-11ee-b644-f23c91cfbbc9
+  sni: 3de2432e-tmm5c0-tonrqx-1khwf.hk3.hyhuawei.com
+  skip-cert-verify: true
+- name: 🇭🇰 中国香港 (Hong Kong) 08 - xiaohe
+  server: vpn-hk-004.fastervpn.world
   port: 443
   udp: true
   type: hysteria2
   password: H7mP2xY9kJ4nQ8wR5tF6vB3z
-  sni: https://t.me/wangcai2
+  sni: vpn-hk-004.fastervpn.world
   skip-cert-verify: true
-- name: 🇭🇰 中国香港 (Hong Kong) 08 - xiaohe
-  server: 9a07c316-tmkao0-u1vxv2-v3c2.nw4.hyhuawei.com
-  port: 443
-  udp: true
-  type: hysteria2
-  password: 5f091cbe-fb34-11ea-9777-f23c9164ca5d
-  sni: 9a07c316-tmkao0-u1vxv2-v3c2.nw4.hyhuawei.com
-  skip-cert-verify: false
 - name: 🇭🇰 中国香港 (Hong Kong) 09 - xiaohe
-  server: 39.109.111.23
-  port: 28675
-  udp: true
-  type: vless
-  uuid: 57beeeb0-03fc-4fc9-94da-7604488a7134
-  flow: xtls-rprx-vision
-  tls: true
-  reality-opts:
-    public-key: jgtiLXdCnQ9WRWMuu2gsuGQOQTCRZQpspnn228kjTSA
-    short-id: 9a79807253c040
-  servername: www.lamer.com.hk
-  client-fingerprint: chrome
-- name: 🇭🇰 中国香港 (Hong Kong) 10 - xiaohe
-  server: 156.245.232.239
-  port: 35043
-  udp: true
-  type: vmess
-  uuid: b15e481d-17e4-41a8-84c2-23d4f0514d9a
-  alterId: 0
-  cipher: auto
-  network: ws
-  ws-opts:
-    path: /
-- name: 🇭🇰 中国香港 (Hong Kong) 11 - xiaohe
   server: doghkzf.zalolink.com
   port: 28675
   udp: true
@@ -115,7 +80,31 @@ proxies:
     short-id: 9a79807253c040
   servername: www.lamer.com.hk
   client-fingerprint: chrome
+- name: 🇭🇰 中国香港 (Hong Kong) 10 - xiaohe
+  server: 20247da3-tmm5c0-u1dz9j-12hj8.hk3.hyhuawei.com
+  port: 443
+  udp: true
+  type: hysteria2
+  password: 5acc7a7c-d7ea-11eb-8673-f23c9164ca5d
+  sni: 20247da3-tmm5c0-u1dz9j-12hj8.hk3.hyhuawei.com
+  skip-cert-verify: true
+- name: 🇭🇰 中国香港 (Hong Kong) 11 - xiaohe
+  server: bd8d18d7-tmm5c0-tny186-4lg6.hk3.hyhuawei.com
+  port: 443
+  udp: true
+  type: hysteria2
+  password: a4c9b7cc-a816-11ed-9f65-f23c9164ca5d
+  sni: bd8d18d7-tmm5c0-tny186-4lg6.hk3.hyhuawei.com
+  skip-cert-verify: false
 - name: 🇭🇰 中国香港 (Hong Kong) 12 - xiaohe
+  server: 6d889de6-tly2o0-tn28ki-mv7m.nw4.hyhuawei.com
+  port: 443
+  udp: true
+  type: hysteria2
+  password: 94d40708-8273-11ea-8fc9-f23c913c8d2b
+  sni: 6d889de6-tly2o0-tn28ki-mv7m.nw4.hyhuawei.com
+  skip-cert-verify: false
+- name: 🇭🇰 中国香港 (Hong Kong) 13 - xiaohe
   server: 103.172.116.201
   port: 10103
   udp: true
@@ -128,51 +117,33 @@ proxies:
     short-id: f96b3b17a0f5b1fe
   servername: www.apple.com
   client-fingerprint: chrome
-- name: 🇭🇰 中国香港 (Hong Kong) 13 - xiaohe
-  server: vpn-hk-004.fastervpn.world
-  port: 443
-  udp: true
-  type: hysteria2
-  password: H7mP2xY9kJ4nQ8wR5tF6vB3z
-  sni: vpn-hk-004.fastervpn.world
-  skip-cert-verify: true
 - name: 🇭🇰 中国香港 (Hong Kong) 14 - xiaohe
-  server: 152.32.254.68
-  port: 5010
+  server: 39.109.111.23
+  port: 28675
   udp: true
-  type: hysteria2
-  password: eBTe6Ax2pUts8oMEWoYVDfnSlHfkLffQ
-  sni: nas.aizhzo.com
-  skip-cert-verify: true
-  obfs: salamander
-  obfs-password: 7M4RXPFcQyQEGbkxBPfXo4bilMhCW2U9
+  type: vless
+  uuid: 57beeeb0-03fc-4fc9-94da-7604488a7134
+  flow: xtls-rprx-vision
+  tls: true
+  reality-opts:
+    public-key: jgtiLXdCnQ9WRWMuu2gsuGQOQTCRZQpspnn228kjTSA
+    short-id: 9a79807253c040
+  servername: www.lamer.com.hk
+  client-fingerprint: chrome
 - name: 🇭🇰 中国香港 (Hong Kong) 15 - xiaohe
-  server: 23.95.72.244
-  port: 58715
+  server: 103.172.116.191
+  port: 10103
   udp: true
   type: vless
-  uuid: 9a5e7b1c-bf39-4b1f-891f-ac87824ee38f
+  uuid: dbf3f074-3b18-43f3-b82a-debd8c879c69
   flow: xtls-rprx-vision
   tls: true
   reality-opts:
-    public-key: xhQQ393yiOwgfp2JzIu0Qfg-5oG3M5Y71mBmI0WM9kU
-    short-id: eab17137bf1d2bad
-  servername: api.adidas.com
-  client-fingerprint: firefox
+    public-key: mjWmmSvs0D3V3130FT7MVbRs94pPuWXR7ffaQ_3A4kU
+    short-id: f96b3b17a0f5b1fe
+  servername: www.apple.com
+  client-fingerprint: chrome
 - name: 🇭🇰 中国香港 (Hong Kong) 16 - xiaohe
-  server: 23.95.72.244
-  port: 58713
-  udp: true
-  type: vless
-  uuid: 9a5e7b1c-bf39-4b1f-891f-ac87824ee38f
-  flow: xtls-rprx-vision
-  tls: true
-  reality-opts:
-    public-key: pDLX46ucLtF5q13vH65lR_2ztY0TNzuAvoHc_MybS0Q
-    short-id: 715335e6264a13
-  servername: api.adidas.com
-  client-fingerprint: firefox
-- name: 🇭🇰 中国香港 (Hong Kong) 17 - xiaohe
   server: 23.95.72.244
   port: 6697
   udp: true
@@ -185,40 +156,52 @@ proxies:
     short-id: e718c0495c85dab2
   servername: www.aboutamazon.sg
   client-fingerprint: firefox
-- name: 🇭🇰 中国香港 (Hong Kong) 18 - xiaohe
-  server: 31.57.248.176
-  port: 50160
+- name: 🇭🇰 中国香港 (Hong Kong) 17 - xiaohe
+  server: 152.32.254.68
+  port: 5010
   udp: true
   type: hysteria2
-  password: b0917015b656b3dd2286b5633af0c5c1
-  sni: www.bing.com
-  skip-cert-verify: true
-- name: 🇭🇰 中国香港 (Hong Kong) 19 - xiaohe
-  server: 23.95.72.244
-  port: 9443
+  password: eBTe6Ax2pUts8oMEWoYVDfnSlHfkLffQ
+  sni: nas.aizhzo.com
+  skip-cert-verify: false
+  obfs: salamander
+  obfs-password: 7M4RXPFcQyQEGbkxBPfXo4bilMhCW2U9
+- name: 🇭🇰 中国香港 (Hong Kong) 18 - xiaohe
+  server: 209.33.160.122
+  port: 39098
   udp: true
   type: vless
-  uuid: 9a5e7b1c-bf39-4b1f-891f-ac87824ee38f
+  uuid: 7852e4df-db54-4f75-a35e-3b8fbe89e56d
   flow: xtls-rprx-vision
   tls: true
   reality-opts:
-    public-key: hY7qJ-wCkHHGHgsWYPxVX67YkyNgAexTG3kyWhifpy0
-    short-id: e1b7e52b41b7c0a7
-  servername: www.eero.com
+    public-key: DtOZ39u6MyQMG96tl13-M7-HeaqQzW2RLBVPk9py-Vg
+  servername: dash.cloudflare.com
   client-fingerprint: firefox
-- name: 🇭🇰 中国香港 (Hong Kong) 20 - xiaohe
-  server: 23.95.72.244
-  port: 48741
+- name: 🇭🇰 中国香港 (Hong Kong) 19 - xiaohe
+  server: 47.244.120.197
+  port: 23026
   udp: true
-  type: vless
-  uuid: 9a5e7b1c-bf39-4b1f-891f-ac87824ee38f
-  flow: xtls-rprx-vision
-  tls: true
-  reality-opts:
-    public-key: uBxSs6VRu8YTdOqtrj07gqmX_0rlzKoGIkIm-qAFFG0
-    short-id: fe92059c14
-  servername: api.adidas.com
-  client-fingerprint: chrome
+  type: vmess
+  uuid: b9de1bc9-baa7-41ac-86f7-ccd59695cb21
+  alterId: 0
+  cipher: auto
+  network: ws
+  ws-opts:
+    path: /arki
+    headers:
+      Host: 47.244.120.197
+- name: 🇭🇰 中国香港 (Hong Kong) 20 - xiaohe
+  server: 47.244.120.197
+  port: 36703
+  udp: true
+  type: vmess
+  uuid: 45b83519-9c4f-4052-a11b-02e017b636d4
+  alterId: 0
+  cipher: auto
+  network: ws
+  ws-opts:
+    path: /arki
 proxy-groups:
 - name: PROXIES
   type: select
