@@ -6,19 +6,21 @@
     {
       "type": "vless",
       "tag": "🇬🇷 希腊 (Greece) 01 - xiaohe",
-      "server": "85.90.197.158",
+      "server": "85.90.197.220",
       "server_port": 443,
-      "uuid": "99c5b713-dedf-4a10-8070-916ff3f49b0e",
+      "uuid": "8f704ed6-9a1a-4d04-94dd-1bff501716de",
+      "flow": "xtls-rprx-vision",
       "tls": {
         "enabled": true,
-        "server_name": "fs.qicai99.com",
-        "insecure": false
-      },
-      "transport": {
-        "type": "ws",
-        "path": "/fp=chrome",
-        "headers": {
-          "Host": "fs.qicai99.com"
+        "server_name": "www.cloudflare.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "biNcdU5mywtNw-KyPpLHindBxdEyAolT1WJ26N0b7y4",
+          "short_id": "94acb54627612d43"
         }
       }
     },
