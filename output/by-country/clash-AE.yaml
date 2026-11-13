@@ -25,7 +25,7 @@ proxies:
   type: hysteria2
   password: p7Q76LzlnS4hIzr1W3staBOnUe_WwSkR
   sni: hy2.aspidnet.xyz
-  skip-cert-verify: true
+  skip-cert-verify: false
   obfs: salamander
   obfs-password: rG07s3COMIEvdnQipRyWzx_H_2xygNC3
 - name: 🇦🇪 阿联酋 (UAE) 04 - xiaohe
@@ -37,15 +37,9 @@ proxies:
   network: ws
   ws-opts:
     path: /vless
+    headers:
+      Host: 95.174.68.188
 - name: 🇦🇪 阿联酋 (UAE) 05 - xiaohe
-  server: sclass-c1.catcat321.com
-  port: 20086
-  udp: true
-  type: trojan
-  password: d9064589-74af-432a-9390-5d8a9da281bf
-  sni: hk.catxstar.com
-  skip-cert-verify: true
-- name: 🇦🇪 阿联酋 (UAE) 06 - xiaohe
   server: 217.217.222.230
   port: 20123
   udp: true
@@ -53,7 +47,7 @@ proxies:
   password: d9064589-74af-432a-9390-5d8a9da281bf
   sni: hk.catxstar.com
   skip-cert-verify: false
-- name: 🇦🇪 阿联酋 (UAE) 07 - xiaohe
+- name: 🇦🇪 阿联酋 (UAE) 06 - xiaohe
   server: 151.241.19.44
   port: 1270
   udp: true
@@ -64,33 +58,9 @@ proxies:
   tls: true
   servername: xmfhlpy.com
   skip-cert-verify: false
-- name: 🇦🇪 阿联酋 (UAE) 08 - xiaohe
-  server: sclass-00.catcat321.com
-  port: 20123
-  udp: true
-  type: trojan
-  password: d9064589-74af-432a-9390-5d8a9da281bf
-  sni: hk.catxstar.com
-  skip-cert-verify: true
-- name: 🇦🇪 阿联酋 (UAE) 09 - xiaohe
+- name: 🇦🇪 阿联酋 (UAE) 07 - xiaohe
   server: 16.106.7.232
   port: 20086
-  udp: true
-  type: trojan
-  password: d9064589-74af-432a-9390-5d8a9da281bf
-  sni: hk.catxstar.com
-  skip-cert-verify: false
-- name: 🇦🇪 阿联酋 (UAE) 10 - xiaohe
-  server: 157.254.38.210
-  port: 20123
-  udp: true
-  type: trojan
-  password: d9064589-74af-432a-9390-5d8a9da281bf
-  sni: hk.catxstar.com
-  skip-cert-verify: false
-- name: 🇦🇪 阿联酋 (UAE) 11 - xiaohe
-  server: 16.106.7.232
-  port: 20123
   udp: true
   type: trojan
   password: d9064589-74af-432a-9390-5d8a9da281bf
@@ -108,10 +78,6 @@ proxy-groups:
   - 🇦🇪 阿联酋 (UAE) 05 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 06 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 07 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 08 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 09 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 10 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 11 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -124,9 +90,5 @@ proxy-groups:
   - 🇦🇪 阿联酋 (UAE) 05 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 06 - xiaohe
   - 🇦🇪 阿联酋 (UAE) 07 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 08 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 09 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 10 - xiaohe
-  - 🇦🇪 阿联酋 (UAE) 11 - xiaohe
 rules:
 - MATCH,PROXIES
