@@ -5,22 +5,25 @@
   "outbounds": [
     {
       "type": "vless",
-      "tag": "🇺🇿 乌兹别克斯坦 (Uzbekistan) 01 - xiaohe",
-      "server": "95.143.188.113",
-      "server_port": 443,
-      "uuid": "367d74e7-0204-4b92-ba57-ae31344dce7f",
+      "tag": "🇮🇸 冰岛 (Iceland) 01 - xiaohe",
+      "server": "89.147.108.16",
+      "server_port": 8443,
+      "uuid": "5d7b401c-78fa-4254-872e-6d42bf7e75ec",
       "tls": {
         "enabled": true,
-        "server_name": "ar5v3uc2o9.j.cloudfront.hls.hlsnode.net",
+        "server_name": "v1n3.11676767.xyz",
         "insecure": false,
         "utls": {
           "enabled": true,
-          "fingerprint": "safari"
+          "fingerprint": "chrome"
         }
       },
       "transport": {
-        "type": "grpc",
-        "service_name": "sync.v1"
+        "type": "ws",
+        "path": "/go.php/products",
+        "headers": {
+          "Host": "v1n3.11676767.xyz"
+        }
       }
     },
     {
@@ -28,14 +31,14 @@
       "tag": "select",
       "outbounds": [
         "auto",
-        "🇺🇿 乌兹别克斯坦 (Uzbekistan) 01 - xiaohe"
+        "🇮🇸 冰岛 (Iceland) 01 - xiaohe"
       ]
     },
     {
       "type": "urltest",
       "tag": "auto",
       "outbounds": [
-        "🇺🇿 乌兹别克斯坦 (Uzbekistan) 01 - xiaohe"
+        "🇮🇸 冰岛 (Iceland) 01 - xiaohe"
       ],
       "url": "https://www.gstatic.com/generate_204"
     },
