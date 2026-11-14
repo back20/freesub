@@ -5,14 +5,6 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇧🇷 巴西 (Brazil) 01 - xiaohe
-  server: 216.238.104.154
-  port: 443
-  udp: true
-  type: trojan
-  password: 0ab6c98dae3b48e8b9c4a776b6c9c19a
-  sni: findtemporaryworkandfreelancerprojectsonlineplatform.com
-  skip-cert-verify: false
-- name: 🇧🇷 巴西 (Brazil) 02 - xiaohe
   server: 103.14.27.207
   port: 1270
   udp: true
@@ -22,6 +14,14 @@ proxies:
   cipher: auto
   tls: true
   servername: xmfhlpy.com
+  skip-cert-verify: false
+- name: 🇧🇷 巴西 (Brazil) 02 - xiaohe
+  server: 216.238.104.154
+  port: 443
+  udp: true
+  type: trojan
+  password: 0ab6c98dae3b48e8b9c4a776b6c9c19a
+  sni: findtemporaryworkandfreelancerprojectsonlineplatform.com
   skip-cert-verify: false
 - name: 🇧🇷 巴西 (Brazil) 03 - xiaohe
   server: 103.88.232.55
@@ -34,21 +34,6 @@ proxies:
   tls: true
   servername: xmfhlpy.com
   skip-cert-verify: false
-- name: 🇧🇷 巴西 (Brazil) 04 - xiaohe
-  server: 43.174.195.1
-  port: 443
-  udp: true
-  type: vless
-  uuid: 24916ad0-847d-4522-9e17-f4347dee57fd
-  tls: true
-  servername: kv.074167.xyz
-  skip-cert-verify: false
-  client-fingerprint: chrome
-  network: ws
-  ws-opts:
-    path: /
-    headers:
-      Host: kv.074167.xyz
 proxy-groups:
 - name: PROXIES
   type: select
@@ -57,7 +42,6 @@ proxy-groups:
   - 🇧🇷 巴西 (Brazil) 01 - xiaohe
   - 🇧🇷 巴西 (Brazil) 02 - xiaohe
   - 🇧🇷 巴西 (Brazil) 03 - xiaohe
-  - 🇧🇷 巴西 (Brazil) 04 - xiaohe
 - name: AUTO
   type: url-test
   url: https://www.gstatic.com/generate_204
@@ -66,6 +50,5 @@ proxy-groups:
   - 🇧🇷 巴西 (Brazil) 01 - xiaohe
   - 🇧🇷 巴西 (Brazil) 02 - xiaohe
   - 🇧🇷 巴西 (Brazil) 03 - xiaohe
-  - 🇧🇷 巴西 (Brazil) 04 - xiaohe
 rules:
 - MATCH,PROXIES

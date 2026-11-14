@@ -16,7 +16,7 @@ proxies:
     public-key: 8eXftARun6KH38UZhuqIfPR1VF2DLS9RMBZEnF5k6To
     short-id: a3a578ab
   servername: www.apple.com
-  client-fingerprint: chrome
+  client-fingerprint: firefox
 - name: 🇮🇱 以色列 (Israel) 02 - xiaohe
   server: 64.177.66.60
   port: 8388
@@ -32,8 +32,7 @@ proxies:
   uuid: 99c5b713-dedf-4a10-8070-916ff3f49b0e
   tls: true
   servername: fs.qicai99.com
-  skip-cert-verify: false
-  client-fingerprint: chrome
+  skip-cert-verify: true
   network: ws
   ws-opts:
     path: /

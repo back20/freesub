@@ -5,19 +5,19 @@ mode: rule
 log-level: info
 proxies:
 - name: 🇦🇱 AL 01 - xiaohe
-  server: 185.4.115.149
-  port: 1348
+  server: 130.49.189.158
+  port: 43558
   udp: true
   type: ss
   cipher: chacha20-ietf-poly1305
-  password: byX4-DV0C42PLFTWQhMTAQ63mZ8qrDRB
+  password: LNc9h/4NA9Q6ZHNeYHoT5X/fR9aoE9KQR1SWhVDHBog=
 - name: 🇦🇱 AL 02 - xiaohe
-  server: dns22.m3hrzd.ir
-  port: 1348
+  server: 130.49.189.158
+  port: 43558
   udp: true
   type: ss
   cipher: chacha20-ietf-poly1305
-  password: byX4-DV0C42PLFTWQhMTAQ63mZ8qrDRB
+  password: yZiPrr484OdSYcivDUv+UIygwvyW+HQYytKsIgTw9tU=
 proxy-groups:
 - name: PROXIES
   type: select
